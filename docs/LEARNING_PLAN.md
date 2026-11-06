@@ -29,7 +29,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
 
 ## Part B - Watching a page
 
-- [ ] **Stage 4 - Open pages like a phone**
+- [x] **Stage 4 - Open pages like a phone**
   - Learn: browser automation, headless browsers, mobile emulation, async/await basics.
   - Build: open a decoded URL in Playwright with a phone profile, type fake credentials, click.
   - Done when: your script reproduces the Stage 2 leak automatically.
