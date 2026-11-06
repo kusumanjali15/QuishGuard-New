@@ -71,7 +71,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
   - Build: a small `sensor.js` that reports sensitive input and holds sends until Python decides.
   - Done when: a send is held, judged and released or dropped.
 
-- [ ] **Stage 11 - Attacks that evade simple checks** (add one at a time, each with a harmless counterpart)
+- [x] **Stage 11 - Attacks that evade simple checks** (add one at a time, each with a harmless counterpart)
   - Password sent before any button press (sendBeacon on blur)
   - Keylogger via image pixels
   - Page harmless at load, OTP form appears after 3 seconds
