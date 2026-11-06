@@ -39,7 +39,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
   - Build: log every outgoing request with method, destination and body.
   - Done when: you can point to the exact request that carries the password.
 
-- [ ] **Stage 6 - Spot sensitive data in a request**
+- [x] **Stage 6 - Spot sensitive data in a request**
   - Learn: sensitive fields (password, one-time code, card), matching typed values in requests, false matches.
   - Build: `carries_sensitive(request, typed_values) -> bool` with tests.
   - Done when: tests pass for form, query-string and URL-encoded cases.

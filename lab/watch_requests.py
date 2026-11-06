@@ -8,6 +8,7 @@ from pathlib import Path
 
 from quishguard.netlog import RequestRecord
 from quishguard.qr import decode_qr
+from quishguard.sensitive import carries_sensitive
 from quishguard.victim import visit_and_login
 
 QR_IMAGE = Path(__file__).parent / "qr" / "phish.png"
@@ -23,8 +24,7 @@ async def main() -> None:
     print(f"Page opened from QR: {url}\n")
     print(f"{'#':>2}  {'METHOD':6}  {'TYPE':9}  {'DESTINATION':24}  URL / BODY")
     for i, r in enumerate(requests, start=1):
-        # Simple text check for now - Stage 6 does this properly.
-        flag = "   <-- carries the password" if PASSWORD in (r.url + (r.body or "")) else ""
+        flag = "   <-- carries the password" if carries_sensitive(r, [PASSWORD]) else ""
         print(f"{i:>2}  {r.method:6}  {r.resource_type:9}  {r.destination:24}  {r.url}{flag}")
         if r.body:
             print(f"{'':48}body: {r.body}")
