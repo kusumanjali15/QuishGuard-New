@@ -46,7 +46,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
 
 ## Part C - Deciding and blocking
 
-- [ ] **Stage 7 - Explainable risk rules**
+- [x] **Stage 7 - Explainable risk rules**
   - Learn: rule-based scoring, weights, thresholds, why every verdict needs reasons.
   - Build: `score_send(page_info, destination, scan_context) -> Verdict(decision, score, reasons)`.
     Rules to design yourself: untrusted site, brand impersonation, cross-site send, scan context mismatch.
