@@ -58,7 +58,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
   - Build: block risky sensitive sends; once a page is judged malicious, block everything it sends.
   - Done when: the Stage 2 attack leaks nothing, the official bank login still works.
 
-- [ ] **Stage 9 - The experiment runner**
+- [x] **Stage 9 - The experiment runner**
   - Learn: baselines, why you compare "no protection" vs "protection", measuring leaks instead of assuming.
   - Build: `run_experiment.py` running each scenario with and without protection; a results table.
   - Done when: one command prints a pass/fail table.
