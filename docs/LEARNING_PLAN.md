@@ -5,24 +5,24 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
 
 ## Part A - Foundations
 
-- [ ] **Stage 0 - Set up the workspace**
+- [x] **Stage 0 - Set up the workspace**
   - Learn: virtual environments, git basics, how pytest finds tests, how Claude Code's Learning mode works (`TODO(human)`).
   - Build: `.venv`, `requirements.txt` with `pytest`, `src/quishguard/` package, `tests/test_sanity.py`.
   - Done when: `pytest` passes one trivial test and the first commit exists.
 
-- [ ] **Stage 1 - How a login page sends data**
+- [x] **Stage 1 - How a login page sends data**
   - Learn: HTTP GET vs POST, HTML forms, what "origin" and "same-origin" mean, what a server receives.
   - Build: a tiny local server (Python `http.server`) on 127.0.0.1 that serves a fictional
     Formosa Demo Bank login page and prints what it receives.
   - Done when: submitting the form with fake credentials prints them in the terminal.
 
-- [ ] **Stage 2 - The lab: legit bank vs phishing site vs attacker**
+- [x] **Stage 2 - The lab: legit bank vs phishing site vs attacker**
   - Learn: why phishing kits often post to their own domain; how a second "collector" domain works.
   - Build: run three servers on different ports (official bank, phishing page, attacker collector)
     and a log file recording everything attacker servers receive.
   - Done when: one fake phishing page leaks the fake password into the attacker log.
 
-- [ ] **Stage 3 - QR codes**
+- [x] **Stage 3 - QR codes**
   - Learn: what's inside a QR code, how phones decode them, why QR hides the URL from the user.
   - Build: generate a QR for a lab URL (`qrcode`) and decode it from the image (`opencv`).
   - Done when: a function `decode_qr(path) -> str` is tested on your generated images.
