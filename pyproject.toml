@@ -1,0 +1,4 @@
+# Project configuration. For now it only tells pytest where things are.
+[tool.pytest.ini_options]
+pythonpath = ["src"]   # so "import quishguard" finds src/quishguard/
+testpaths = ["tests"]  # only look for tests in tests/
