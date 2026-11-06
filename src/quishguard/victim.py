@@ -49,10 +49,59 @@ async def visit_and_login(
 
         # Clicking submits the form, which navigates away (POST, then redirect).
         try:
-            async with page.expect_navigation(timeout=10_000):
+            async with page.expect_navigation(timeout=4_000):
                 await page.click('button[type="submit"]')
         except PlaywrightError:
             pass  # navigation was blocked by the guard: stay on the current page
+
+        final_url = page.url
+        await browser.close()
+        return final_url
+
+
+# Fake lab values the automated victim will type into sensitive fields.
+VICTIM_VALUES = {
+    'input[name="username"]': "demo_user_01",
+    'input[type="password"]': "Lab-Pass-4821",
+    'input[autocomplete="one-time-code"]': "123456",
+}
+
+
+async def visit_and_interact(
+    url: str,
+    headless: bool = True,
+    guard: Guard | None = None,
+    sensor: Guard | None = None,
+    settle_ms: int = 0,
+) -> str:
+    """Open a page like a phone, optionally wait for late content, then fill any
+    sensitive fields present and submit. Used by the Stage 11 attack harness,
+    where field names and timing vary from page to page.
+    """
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=headless)
+        context = await browser.new_context(**p.devices[PHONE])
+        if sensor is not None:
+            await install_sensor(context, sensor)
+        page = await context.new_page()
+        if guard is not None:
+            await page.route("**/*", guard.handle)
+
+        await page.goto(url)
+        if guard is not None:
+            guard.page = PageInfo(page.url, await page.title())
+        if settle_ms:
+            await page.wait_for_timeout(settle_ms)  # let delayed forms appear
+
+        for selector, value in VICTIM_VALUES.items():
+            if await page.query_selector(selector):
+                await page.fill(selector, value)
+
+        try:
+            async with page.expect_navigation(timeout=4_000):
+                await page.click("button")
+        except PlaywrightError:
+            pass  # no button, or send was blocked: nothing to navigate to
 
         final_url = page.url
         await browser.close()

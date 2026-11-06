@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bean Corner Cafe - Member sign-in</title></head>
+<body>
+  <h1>Bean Corner Cafe</h1>
+  <p style="color:#a00">LAB BENIGN PAGE - legitimate beacon use (counterpart of beacon_leak).</p>
+
+  <form action="http://127.0.0.1:8003/noop" method="post">
+    <input name="username" placeholder="Member name">
+    <input name="password" type="password" placeholder="Password">
+    <button type="submit">Sign in</button>
+  </form>
+
+  <script>
+    // Legitimate analytics: a usage ping to our OWN server, NO sensitive data.
+    const pw = document.querySelector('input[name="password"]');
+    pw.addEventListener("blur", () => {
+      navigator.sendBeacon("http://127.0.0.1:8003/stats", "event=login_focus_lost");
+    });
+  </script>
+</body></html>

