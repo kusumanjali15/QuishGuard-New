@@ -64,6 +64,7 @@ VICTIM_VALUES = {
     'input[name="username"]': "demo_user_01",
     'input[type="password"]': "Lab-Pass-4821",
     'input[autocomplete="one-time-code"]': "123456",
+    'input[name="code"]': "LINK-7788",   # Stage 11: app-linking code (non-credential scam)
 }
 
 

@@ -15,6 +15,7 @@ from quishguard.victim import visit_and_interact
 LAB = Path(__file__).parent
 ATTACKER_LOG = LAB.parent / "logs" / "attacker.log"
 PASSWORD, OTP = "Lab-Pass-4821", "123456"   # told to the network-only guard
+LINK_CODE = "LINK-7788"                      # a non-credential secret; NOT told to the guard
 
 # name, page URL, kind ("attack" must leak without protection; "benign" must never leak)
 CASES = [
@@ -26,6 +27,8 @@ CASES = [
     ("otp-late benign", "http://127.0.0.1:8003/otp_late_benign.html", "benign", 3000, None),
     ("captcha+websocket", "http://127.0.0.1:8003/captcha_ws_leak.html", "attack", 0, "#captcha"),
     ("captcha benign", "http://127.0.0.1:8003/captcha_ws_benign.html", "benign", 0, "#captcha"),
+    ("link-code scam", "http://127.0.0.1:8003/link_scam_leak.html", "attack", 0, None),
+    ("link-code benign", "http://127.0.0.1:8003/link_scam_benign.html", "benign", 0, None),
 ]
 SETTINGS = ["none", "sensor", "network", "both"]
 
@@ -36,7 +39,7 @@ def log_lines() -> list[str]:
 
 def count_secret_leaks(new_lines: list[str]) -> int:
     """A leak = an attacker-log line that actually contains a sensitive value."""
-    return sum(1 for ln in new_lines if PASSWORD in ln or OTP in ln)
+    return sum(1 for ln in new_lines if any(s in ln for s in (PASSWORD, OTP, LINK_CODE)))
 
 
 async def run_once(url: str, setting: str, settle_ms: int, pre_click: str | None) -> tuple[int, bool]:

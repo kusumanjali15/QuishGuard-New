@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bean Corner Cafe - Shared album</title></head>
+<body>
+  <h1>Bean Corner Cafe</h1>
+  <p style="color:#a00">LAB BENIGN PAGE - enter a share code, sent to OUR OWN server (counterpart).</p>
+  <p>Enter the album share code to view the cafe event photos.</p>
+
+  <input name="code" placeholder="Share code">
+  <button type="button" id="view">View album</button>
+
+  <script>
+    document.getElementById("view").addEventListener("click", () => {
+      const code = document.querySelector('input[name="code"]').value;
+      fetch("http://127.0.0.1:8003/album", {        // OUR OWN origin
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: "code=" + encodeURIComponent(code),
+      });
+    });
+  </script>
+</body></html>

