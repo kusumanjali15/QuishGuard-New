@@ -1,4 +1,15 @@
-# Project configuration. For now it only tells pytest where things are.
+# Project configuration.
+
+# How to build/install our package (setuptools finds src/quishguard by itself).
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quishguard"
+version = "0.0.1"
+requires-python = ">=3.11"
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]   # so "import quishguard" finds src/quishguard/
 testpaths = ["tests"]  # only look for tests in tests/
