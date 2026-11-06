@@ -2,3 +2,4 @@ pytest>=8,<9
 qrcode[pil]>=8,<9              # Stage 3: generate QR images (Pillow saves the PNG)
 opencv-python-headless>=4.8,<5 # Stage 3: decode QR codes from images
 playwright>=1.45,<2            # Stage 4: drive a real (headless) browser like a phone
+websockets>=12,<16            # Stage 11: a WebSocket attacker sink (one evasive channel)

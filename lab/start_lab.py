@@ -3,12 +3,14 @@
 Usage:  python lab\\start_lab.py
 """
 
+import asyncio
 import threading
 import time
 from http.server import HTTPServer
 
 import bank_server
 import attack_server
+import ws_collector
 import collector_server
 import phish_server
 
@@ -32,6 +34,8 @@ for name, handler, port in SERVERS:
     threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"{name:30} http://127.0.0.1:{port}")
 
+threading.Thread(target=lambda: asyncio.run(ws_collector.main()), daemon=True).start()
+print(f"{'WebSocket collector':30} ws://127.0.0.1:8004")
 print("Lab running - Ctrl+C to stop.")
 try:
     while True:

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bean Corner Cafe - Secure sign-in</title></head>
+<body>
+  <h1>Bean Corner Cafe</h1>
+  <p style="color:#a00">LAB BENIGN PAGE - CAPTCHA gate, then login to OUR OWN server (counterpart).</p>
+  <div id="slot"><button type="button" id="captcha">I'm not a robot</button></div>
+
+  <script>
+    document.getElementById("captcha").addEventListener("click", () => {
+      document.getElementById("slot").innerHTML =
+        '<input name="username" placeholder="Member name">' +
+        '<input name="password" type="password" placeholder="Password">' +
+        '<button type="button" id="login">Log in</button>';
+      document.getElementById("login").addEventListener("click", () => {
+        const p = document.querySelector('input[name="password"]').value;
+        // Legitimate: posts to OUR OWN origin, an allowed channel.
+        fetch("http://127.0.0.1:8003/login", {
+          method: "POST",
+          headers: {"Content-Type": "application/x-www-form-urlencoded"},
+          body: "password=" + encodeURIComponent(p),
+        });
+      });
+    });
+  </script>
+</body></html>

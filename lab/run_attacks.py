@@ -18,31 +18,38 @@ PASSWORD, OTP = "Lab-Pass-4821", "123456"   # told to the network-only guard
 
 # name, page URL, kind ("attack" must leak without protection; "benign" must never leak)
 CASES = [
-    ("beacon-on-blur", "http://127.0.0.1:8003/beacon_leak.html", "attack", 0),
-    ("beacon benign", "http://127.0.0.1:8003/beacon_benign.html", "benign", 0),
-    ("pixel keylogger", "http://127.0.0.1:8003/pixel_leak.html", "attack", 0),
-    ("pixel benign", "http://127.0.0.1:8003/pixel_benign.html", "benign", 0),
-    ("otp-appears-late", "http://127.0.0.1:8003/otp_late_leak.html", "attack", 3000),
-    ("otp-late benign", "http://127.0.0.1:8003/otp_late_benign.html", "benign", 3000),
+    ("beacon-on-blur", "http://127.0.0.1:8003/beacon_leak.html", "attack", 0, None),
+    ("beacon benign", "http://127.0.0.1:8003/beacon_benign.html", "benign", 0, None),
+    ("pixel keylogger", "http://127.0.0.1:8003/pixel_leak.html", "attack", 0, None),
+    ("pixel benign", "http://127.0.0.1:8003/pixel_benign.html", "benign", 0, None),
+    ("otp-appears-late", "http://127.0.0.1:8003/otp_late_leak.html", "attack", 3000, None),
+    ("otp-late benign", "http://127.0.0.1:8003/otp_late_benign.html", "benign", 3000, None),
+    ("captcha+websocket", "http://127.0.0.1:8003/captcha_ws_leak.html", "attack", 0, "#captcha"),
+    ("captcha benign", "http://127.0.0.1:8003/captcha_ws_benign.html", "benign", 0, "#captcha"),
 ]
 SETTINGS = ["none", "sensor", "network", "both"]
 
 
-def leaks() -> int:
-    return len(ATTACKER_LOG.read_text(encoding="utf-8").splitlines()) if ATTACKER_LOG.exists() else 0
+def log_lines() -> list[str]:
+    return ATTACKER_LOG.read_text(encoding="utf-8").splitlines() if ATTACKER_LOG.exists() else []
 
 
-async def run_once(url: str, setting: str, settle_ms: int) -> tuple[int, bool]:
+def count_secret_leaks(new_lines: list[str]) -> int:
+    """A leak = an attacker-log line that actually contains a sensitive value."""
+    return sum(1 for ln in new_lines if PASSWORD in ln or OTP in ln)
+
+
+async def run_once(url: str, setting: str, settle_ms: int, pre_click: str | None) -> tuple[int, bool]:
     """Return (new attacker-log entries, whether a layer reported a block)."""
     sensor = Guard(scan=ScanContext(from_qr=True)) if setting in ("sensor", "both") else None
     guard = (Guard(scan=ScanContext(from_qr=True), typed_values=[PASSWORD, OTP])
              if setting in ("network", "both") else None)
 
-    before = leaks()
-    await visit_and_interact(url, guard=guard, sensor=sensor, settle_ms=settle_ms)
-    await asyncio.sleep(0.4)  # let beacons flush and servers write
+    before = log_lines()
+    await visit_and_interact(url, guard=guard, sensor=sensor, settle_ms=settle_ms, pre_click=pre_click)
+    await asyncio.sleep(0.5)  # let beacons/ws flush and servers write
 
-    leaked = leaks() - before
+    leaked = count_secret_leaks(log_lines()[len(before):])
     blocked = any("BLOCK" in line or "dropped" in line
                   for g in (sensor, guard) if g for line in g.log)
     return leaked, blocked
@@ -50,10 +57,10 @@ async def run_once(url: str, setting: str, settle_ms: int) -> tuple[int, bool]:
 
 async def main() -> None:
     print(f"\n{'ATTACK':16} {'KIND':7} " + " ".join(f"{s:>9}" for s in SETTINGS))
-    for name, url, kind, settle_ms in CASES:
+    for name, url, kind, settle_ms, pre_click in CASES:
         cells = []
         for setting in SETTINGS:
-            leaked, blocked = await run_once(url, setting, settle_ms)
+            leaked, blocked = await run_once(url, setting, settle_ms, pre_click)
             mark = "LEAK" if leaked else ("BLOCK" if blocked else "ok")
             cells.append(f"{mark:>9}")
         print(f"{name:16} {kind:7} " + " ".join(cells))

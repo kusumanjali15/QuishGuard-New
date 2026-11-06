@@ -73,6 +73,7 @@ async def visit_and_interact(
     guard: Guard | None = None,
     sensor: Guard | None = None,
     settle_ms: int = 0,
+    pre_click: str | None = None,
 ) -> str:
     """Open a page like a phone, optionally wait for late content, then fill any
     sensitive fields present and submit. Used by the Stage 11 attack harness,
@@ -92,6 +93,9 @@ async def visit_and_interact(
             guard.page = PageInfo(page.url, await page.title())
         if settle_ms:
             await page.wait_for_timeout(settle_ms)  # let delayed forms appear
+        if pre_click and await page.query_selector(pre_click):
+            await page.click(pre_click)              # pass a gate (e.g. CAPTCHA)
+            await page.wait_for_timeout(500)         # let the real form appear
 
         for selector, value in VICTIM_VALUES.items():
             if await page.query_selector(selector):
