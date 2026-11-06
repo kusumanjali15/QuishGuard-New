@@ -52,6 +52,10 @@ web internals, ML pipelines and Android/Kotlin.
   splits (by domain, campaign or time - never random by URL).
 - The Python prototype can read request bodies; Android's WebView interception cannot (it sees
   only the destination). Note Android feasibility whenever a blocking feature is added.
+- Never claim WHALE misses a case it lists as handled (delayed redirection within its observation
+  window, same-page credential harvesting, JS handler mutation, interaction-gated pages, user-agent
+  filtering). Compare only on WHALE's stated open cases (see docs/PROJECT_CONTEXT.md), and only against a
+  WHALE-inspired baseline we build - never against the real system.
 
 ## Code conventions
 

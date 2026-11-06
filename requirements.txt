@@ -3,3 +3,5 @@ qrcode[pil]>=8,<9              # Stage 3: generate QR images (Pillow saves the P
 opencv-python-headless>=4.8,<5 # Stage 3: decode QR codes from images
 playwright>=1.45,<2            # Stage 4: drive a real (headless) browser like a phone
 websockets>=12,<16            # Stage 11: a WebSocket attacker sink (one evasive channel)
+transformers>=4.44,<5         # Stage 13: load a pretrained URL phishing classifier
+torch>=2.5,<3                 # Stage 13: runs the model (CPU is fine). Large download.

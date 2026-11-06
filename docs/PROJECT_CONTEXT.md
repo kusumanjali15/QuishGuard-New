@@ -1,6 +1,7 @@
 # QuishGuard - project context
 
-Last updated: 2026-11-06. Background for anyone (human or Claude) working in this repo.
+Last updated: 2026-11-06 (after a full reading of the WHALE paper). Background for anyone
+(human or Claude) working in this repo.
 
 ## The problem
 
@@ -12,20 +13,31 @@ QuishGuard watches.
 
 Local focus: Taiwan (TWQR payment fraud; LINE account takeover via "shared photos" QR + code lures).
 
-## Closest prior work: WHALE (Sensors, July 2026)
+## Closest prior work: WHALE (Sensors 2026, 26, 4412)
 
 https://www.mdpi.com/1424-8220/26/14/4412 - QR-triggered, on-device Android WebView analysis.
-It opens each QR-decoded URL in a sandbox WebView **before** the user sees it, scores it, and
-probes unclear pages with decoy credentials, then releases or blocks the URL.
+Opens each QR-decoded URL in a sandbox WebView **before** the user sees it:
+- Static stage: 54 URL/HTML features (TFLite), dual threshold ALLOW / AMBIGUOUS / BLOCK.
+- Dynamic stage (ambiguous pages that reach a credential page only): types **decoy credentials**,
+  records 59 state-transition features (form, role, hidden, response, handler, consumption),
+  HGB classifier. Dynamic F1 0.920; ~4.2 s (~5.6 s including credential-page detection).
 
-What WHALE leaves open (our space):
-- No monitoring after the page is released to the user.
-- CAPTCHA/MFA-gated flows and non-credential QR scams are out of its scope.
-- About 4.2 s of dynamic analysis before the user can use the page.
-- No per-channel enforcement; whole-URL block or allow only.
+**WHALE already handles** (never claim it misses these): delayed redirection within its window,
+same-page harvesting, handler mutation, interaction-gated pages, user-agent filtering.
 
-We cannot claim "first on-device QR behaviour detection". We position as **complementary**:
-a pre-release check plus live-session protection.
+**Open cases WHALE's authors list** (our space):
+1. Pages allowed by the static stage get no dynamic check and no monitoring after release.
+2. Sandbox- or decoy-aware evasion.
+3. CAPTCHA/MFA-gated flows.
+4. Non-credential scams (linking codes, payments).
+5. Behaviour after the analysis window; kits whose backend is dead.
+6. **Our hypothesis (not yet tested):** an AiTM relay forwards decoy credentials to the real site,
+   which returns a genuine "wrong password"; decoy-based response features may read this as benign.
+
+Positioning: **complementary (hybrid)**, not "first". A pre-release check can stay in front;
+QuishGuard adds live-session protection behind it. Trade-off to report honestly: in a live session
+real credentials enter the page, so protection depends on stopping the send - report residual
+exposure per channel.
 
 ## Research paper (working title)
 
@@ -34,22 +46,30 @@ QR-Triggered Phishing in Android In-App WebViews*
 
 | RQ | Question | Evidence needed |
 |---|---|---|
-| RQ1 | Which outbound channels in an Android in-app WebView can be observed and blocked (JS hooks vs native), incl. under hook evasion? | Per-channel interception success rate |
-| RQ2 | How common are sandbox-evading behaviours in live QR-reachable phishing, and does live monitoring catch what a WHALE-inspired check misses? | Prevalence numbers from real samples; detection comparison |
-| RQ3 | How well are AiTM, CAPTCHA/MFA-gated and non-credential QR scams handled? | Results per hard category |
-| RQ4 | Robustness to unseen campaigns, cloaking, adaptive attackers | Recall drop on time-split / adaptive sets |
-| RQ5 | On-device latency, memory, battery cost | Measurements on low- and mid-range Android |
+| RQ1 | Which outbound channels in an Android in-app WebView can be observed and blocked (JS hooks vs native), incl. same-origin sends and hook evasion? | Per-channel interception success rate, residual exposure |
+| RQ2 | How common are WHALE's stated open cases in real phishing pages? | Prevalence numbers from real samples |
+| RQ3 | How well does live-session protection cover the open cases and AiTM, and at what false-positive cost on benign SSO/OTP/payment flows? | Results per case vs a WHALE-inspired pipeline; FPR on benign flows |
+| RQ4 | Robustness on unseen kit families | Recall on kit-family-disjoint test sets |
+| RQ5 | Cost and usability | On-device latency/memory/battery; "time until usable" vs WHALE's ~4.2 / ~5.6 s |
 
-Event-sequence model (CNN/GRU) = ablation only; keep it only if it beats LightGBM on
-order-dependent cases.
+Experiments: E1 channel interception, E2 prevalence, E3 open cases, E4 AiTM relay (isolated lab,
+own test accounts), E5 false positives, E6 robustness, E7 cost/usability, E8 sequence-model
+ablation (CNN/GRU kept only if it beats LightGBM on order-dependent cases).
 
-Metrics: recall, precision, F1, false-positive rate, **recall at fixed FPR (e.g. 0.1%)**,
-detection latency, **interception success rate**.
+Method rules: kit-family-disjoint splits (WHALE protocol), threshold chosen on training data only,
+no URL/domain/origin features in the behaviour model (origin rules only as an ablation),
+confusion matrix, 10-run rolling evaluation, recall at fixed FPR, interception success rate.
 
-Datasets: (1) general phishing for baselines; (2) **QR-reachable** phishing for the main
-evaluation. Candidate sources: `phreshphish/phreshphish` (HTML + URL pairs, base-rate
-benchmarks), `nyuuzyou/phishing-snapshots` (full HTML + HAR network traffic, CC0),
-CIC-Trap4Phish (QR attachments), Taiwan 165 anti-fraud notices, our own lab pages.
+## Datasets
+
+| Source | Use | Notes |
+|---|---|---|
+| DynaPD (github.com/code-philia/DynaPD) | Main behaviour traces | 6,000+ de-weaponized PHP kits, CC0. Run **isolated**: no internet, mail disabled |
+| Mendeley web page phishing (doi 10.17632/c2gw7fy2j4.3) | Static stage of the WHALE-inspired baseline | HF `pirocheto/phishing-url` may be the same source - verify |
+| `nyuuzyou/phishing-snapshots` | Prevalence (RQ2) | Passive captures; no credential sends recorded |
+| `phreshphish/phreshphish` | Extra baseline data | HTML + URL pairs |
+| Tranco / Taiwan login pages, benign SSO/OTP/payment flows | False-positive tests | Benign only |
+| Own lab pages (open cases, AiTM) | E3, E4 | Fictional brands, fake or own test accounts |
 
 ## Planned design (to be built step by step)
 
@@ -70,7 +90,7 @@ Enforcement once a page is judged risky:
 
 1. Gate 1 - the mechanism works on lab scenarios (Python), then on Android.
 2. Gate 2 - a trained model beats the hand-written rules at a fixed false-positive rate.
-3. Gate 3 - results hold on unseen campaigns, cloaked and adaptive pages.
+3. Gate 3 - results hold on unseen kit families, cloaked and adaptive pages.
 4. Gate 4 (startup track, later) - one observe-only pilot partner. Patent outlook is low;
    advantage must come from results, Taiwan focus and partnerships.
 
