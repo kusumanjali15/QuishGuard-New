@@ -34,7 +34,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
   - Build: open a decoded URL in Playwright with a phone profile, type fake credentials, click.
   - Done when: your script reproduces the Stage 2 leak automatically.
 
-- [ ] **Stage 5 - See every request a page makes**
+- [x] **Stage 5 - See every request a page makes**
   - Learn: network requests, request types (document, fetch, xhr, image, ping), destination vs body.
   - Build: log every outgoing request with method, destination and body.
   - Done when: you can point to the exact request that carries the password.
