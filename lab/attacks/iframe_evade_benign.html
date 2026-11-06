@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bean Corner Cafe - Member sign-in</title></head>
+<body>
+  <h1>Bean Corner Cafe</h1>
+  <p style="color:#a00">LAB BENIGN PAGE - uses an iframe fetch to OUR OWN server (counterpart).</p>
+
+  <input name="username" placeholder="Member name">
+  <input name="password" type="password" placeholder="Password">
+  <button type="button" id="login">Sign in</button>
+
+  <script>
+    document.getElementById("login").addEventListener("click", () => {
+      const p = document.querySelector('input[name="password"]').value;
+      const frame = document.createElement("iframe");
+      frame.style.display = "none";
+      document.body.appendChild(frame);
+      const cleanFetch = frame.contentWindow.fetch;
+      cleanFetch.call(frame.contentWindow, "http://127.0.0.1:8003/login", {  // OUR OWN origin
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: "password=" + encodeURIComponent(p),
+      });
+    });
+  </script>
+</body></html>

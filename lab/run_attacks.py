@@ -29,6 +29,8 @@ CASES = [
     ("captcha benign", "http://127.0.0.1:8003/captcha_ws_benign.html", "benign", 0, "#captcha"),
     ("link-code scam", "http://127.0.0.1:8003/link_scam_leak.html", "attack", 0, None),
     ("link-code benign", "http://127.0.0.1:8003/link_scam_benign.html", "benign", 0, None),
+    ("iframe hook-evade", "http://127.0.0.1:8003/iframe_evade_leak.html", "attack", 0, None),
+    ("iframe benign", "http://127.0.0.1:8003/iframe_evade_benign.html", "benign", 0, None),
 ]
 SETTINGS = ["none", "sensor", "network", "both"]
 
