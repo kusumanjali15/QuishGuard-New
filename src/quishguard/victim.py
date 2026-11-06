@@ -6,6 +6,7 @@ from playwright.async_api import async_playwright
 from quishguard.guard import Guard
 from quishguard.netlog import RequestRecord, record_from_playwright
 from quishguard.rules import PageInfo
+from quishguard.sensor import install_sensor
 
 PHONE = "Pixel 7"  # Android profile: Chromium engine, same family as Android WebView
 
@@ -17,16 +18,20 @@ async def visit_and_login(
     headless: bool = True,
     record: list[RequestRecord] | None = None,
     guard: Guard | None = None,
+    sensor: Guard | None = None,
 ) -> str:
     """Open url as a phone, fill the login form, submit it.
 
     Returns the URL the browser ends up on (after any redirects).
     If `record` is a list, every request the page starts is appended to it.
     If `guard` is given, every request is held and allowed or blocked (Stage 8).
+    If `sensor` is given, sensor.js is injected into the page (Stage 10).
     """
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=headless)
         context = await browser.new_context(**p.devices[PHONE])  # phone screen, touch, user agent
+        if sensor is not None:
+            await install_sensor(context, sensor)  # before any page exists
         page = await context.new_page()
 
         if record is not None:

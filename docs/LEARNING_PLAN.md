@@ -65,7 +65,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
 
 ## Part D - Harder attacks
 
-- [ ] **Stage 10 - In-page sensor (JavaScript layer)**
+- [x] **Stage 10 - In-page sensor (JavaScript layer)**
   - Learn: JavaScript basics, init scripts, wrapping `fetch`/`XMLHttpRequest`/`sendBeacon`,
     hold-by-default. Android equivalent: `addDocumentStartJavaScript`.
   - Build: a small `sensor.js` that reports sensitive input and holds sends until Python decides.

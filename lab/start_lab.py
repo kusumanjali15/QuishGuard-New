@@ -1,0 +1,38 @@
+"""Start all three lab servers in ONE terminal (127.0.0.1 only). Ctrl+C stops them.
+
+Usage:  python lab\\start_lab.py
+"""
+
+import threading
+import time
+from http.server import HTTPServer
+
+import bank_server
+import collector_server
+import phish_server
+
+
+class ExclusiveHTTPServer(HTTPServer):
+    allow_reuse_address = False  # refuse to share a port (see run_experiment.py)
+
+
+SERVERS = [
+    ("Formosa Demo Bank (official)", bank_server.BankHandler, 8000),
+    ("Phishing site", phish_server.PhishHandler, 8001),
+    ("Attacker collector", collector_server.CollectorHandler, 8002),
+]
+
+for name, handler, port in SERVERS:
+    try:
+        server = ExclusiveHTTPServer(("127.0.0.1", port), handler)
+    except OSError:
+        raise SystemExit(f"Port {port} is busy - is another lab server still running?")
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    print(f"{name:30} http://127.0.0.1:{port}")
+
+print("Lab running - Ctrl+C to stop.")
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    print("\nLab stopped.")
