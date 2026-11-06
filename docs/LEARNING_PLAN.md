@@ -52,7 +52,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
     Rules to design yourself: untrusted site, brand impersonation, cross-site send, scan context mismatch.
   - Done when: unit tests cover the official bank (allow), a fake bank (block), an unknown shop sign-up (allow).
 
-- [ ] **Stage 8 - Block the send (network layer)**
+- [x] **Stage 8 - Block the send (network layer)**
   - Learn: request interception (`route.abort` / `route.continue_`), containment, why blocking only
     other domains misses same-origin theft. Android equivalent: `shouldInterceptRequest` (destination only).
   - Build: block risky sensitive sends; once a page is judged malicious, block everything it sends.
