@@ -61,6 +61,8 @@ web internals, ML pipelines and Android/Kotlin.
 
 - Python 3.11+, a virtual environment in `.venv`, dependencies in `requirements.txt` (add a
   library only when its stage needs it, and explain why).
+- Parked/optional dependencies (e.g. the URL-BERT prototype's `transformers`/`torch`)
+  live in `requirements-optional.txt`, not `requirements.txt`.
 - Small functions, type hints, plain-English comments.
 - Tests with `pytest` in `tests/` from Stage 1 onward. Run them before saying something works.
 - Commit at the end of each stage with a message like `Stage 3: open pages with Playwright`.

@@ -1,0 +1,5 @@
+# Optional / parked dependencies - NOT needed for the main project.
+# Install only for the parked URL-BERT prototype (src/quishguard/urlmodel.py):
+#   python -m pip install -r requirements-optional.txt
+transformers>=4.44,<5         # parked: pretrained URL phishing classifier
+torch>=2.5,<3                 # parked: runs that model (large CPU download)
