@@ -10,6 +10,8 @@ import sys
 
 from quishguard.snapshots import (dedup_counts, estimate_download, load_sample,
                                    shard_time_ranges, verify_parsed_columns)
+from quishguard.detectors import (non_credential_sweep, prevalence_table,
+                                  script_driven_sweep)
 
 if "--estimate" in sys.argv:
     print("Reading parquet footers only (no row data)...")
@@ -46,3 +48,12 @@ if "loose" in counts:
     u = counts["loose"]
     print(f"  loose dedup -> {u} unique pages ({round(100*u/counts['none'])}% of rows)")
 print("  (exact dedup + OC2 inline-JS search need the html/inline_scripts blobs -> heavy sample)")
+
+print("\nPrevalence of load-time characteristics:")
+print(prevalence_table(df).to_string(index=False))
+print("\n#4 script-driven sensitivity:")
+print(script_driven_sweep(df).to_string(index=False))
+print("\n#3 non-credential-lure sensitivity:")
+print(non_credential_sweep(df).to_string(index=False))
+print("\nNOTE: general phishing (captured Jul-Aug 2024), NOT QR-reachable pages specifically;")
+print("      passive captures, at-capture only (no interaction / no credential sends).")

@@ -6,3 +6,4 @@ websockets>=12,<16            # Stage 11: a WebSocket attacker sink (one evasive
 pandas>=2,<3                # Stage 14: analyse the sample
 pyarrow>=15,<22            # Stage 14: read parquet shards
 huggingface_hub>=0.23,<2   # Stage 14: fetch dataset shards (cached)
+tldextract>=5,<6            # Stage 14.2: registrable domain (eTLD+1) for #6

@@ -26,7 +26,7 @@ SHARD_FMT = "data/train-{:05d}-of-00028.parquet"
 # cheap integer columns used by #4 - not the JS text itself.
 SELECTED_COLUMNS = [
     "id", "domain", "final_url", "scan_timestamp", "title", "extracted_text",
-    "text_length", "http_status", "has_password_field", "input_fields",
+    "text_length", "http_status", "has_html", "has_password_field", "input_fields",
     "input_count", "form_count", "form_actions", "external_script_urls",
     "iframe_srcs", "external_domains", "inline_scripts_count",
     "inline_scripts_total_bytes",
