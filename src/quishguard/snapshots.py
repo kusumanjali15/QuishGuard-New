@@ -270,3 +270,46 @@ def verify_parsed_columns(n: int = 30, seed: int = 42, shard: int = 0) -> pd.Dat
             "pw_mismatch": bool(r["has_password_field"]) != our_pw,
         })
     return pd.DataFrame(rows)
+
+
+def export_label_set(path, n: int = 100, seed: int = 7, df: pd.DataFrame | None = None):
+    """Write a random n-row label sheet (CSV, Excel/zh-TW friendly): context columns
+    + each detector's flag + an empty truth:: column to fill with 1/0. For the
+    manual-precision step (14.5). Uses the LIGHT columns (title/text/structure)."""
+    from quishguard.detectors import LIGHT_DETECTORS
+    if df is None:
+        df = load_sample()
+    s = df.sample(n=min(n, len(df)), random_state=seed).reset_index(drop=True)
+    out = pd.DataFrame({
+        "id": s["id"], "domain": s["domain"], "url": s.get("final_url"),
+        "title": s["title"].fillna("").astype(str).str.slice(0, 120),
+        "text": s["extracted_text"].fillna("").astype(str).str.replace(r"\s+", " ", regex=True).str.slice(0, 300),
+        "has_password_field": s["has_password_field"], "input_count": s["input_count"],
+    })
+    for name, fn in LIGHT_DETECTORS.items():
+        out[f"flag::{name}"] = fn(s).astype(int).values
+        out[f"truth::{name}"] = ""          # fill 1 (really is) / 0 (false flag)
+    out.to_csv(path, index=False, encoding="utf-8-sig")
+    return path, len(out)
+
+
+def label_precision(path):
+    """Read a labelled sheet and report each detector's precision (of flagged rows,
+    how many truth==1) with a Wilson 95% CI."""
+    from quishguard.detectors import wilson_ci
+    df = pd.read_csv(path)
+    rows = []
+    for col in [c for c in df.columns if c.startswith("flag::")]:
+        name = col.split("::", 1)[1]
+        tcol = f"truth::{name}"
+        if tcol not in df.columns:
+            continue
+        flagged = df[df[col] == 1]
+        labeled = flagged[pd.to_numeric(flagged[tcol], errors="coerce").isin([0, 1])]
+        n = len(labeled)
+        k = int((pd.to_numeric(labeled[tcol], errors="coerce") == 1).sum()) if n else 0
+        lo, hi = wilson_ci(k, n)
+        rows.append({"detector": name, "flagged_labeled": n,
+                     "precision_%": round(100 * k / n, 1) if n else None,
+                     "95ci": f"{round(100*lo,1)}-{round(100*hi,1)}" if n else "n/a"})
+    return pd.DataFrame(rows)
