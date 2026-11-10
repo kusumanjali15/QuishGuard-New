@@ -107,7 +107,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
 
 ## Part E - Real data and ML
 
-- [ ] **Stage 13 - Reproduce WHALE's static stage (sklearn, no torch)**
+- [x] **Stage 13 - Reproduce WHALE's static stage (sklearn, no torch)**
   - Learn: WHALE's static features, a simple classifier (logistic regression / gradient boosting),
     train/test discipline. Reproduce the static stage on the Mendeley "Web page phishing detection"
     dataset (check if HF `pirocheto/phishing-url` is the same version).
