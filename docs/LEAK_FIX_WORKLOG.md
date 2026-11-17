@@ -264,3 +264,16 @@ verified (as the original one-click page did), so at load there is nothing
 sensitive to flag. Expected after re-rerun: CAPTCHA Load-time = **miss** again,
 QuishGuard = **BLOCK** (sensor). Blind-victim test unaffected (it checks the form
 is revealed, which still only happens after a correct code).
+
+---
+
+## Addenda (2026-11-17)
+- **Pixel/Hook regression, one line:** dropping the harness secrets `[PASSWORD, OTP]`
+  from the network guard removed its value-matching backstop for channels the sensor
+  does not wrap (pixel `Image().src` GET, hook-evasion's iframe clean `fetch`), so both
+  leaked; fixed by `window.__qg_observe` feeding sensor-observed values to the network
+  guard at type-time, so it matches on what the user actually typed.
+- **Minimum length on observed values:** `MIN_LENGTH = 4` (sensitive.py) is enforced in
+  both `carries_sensitive` and `observe_values`, so a 1-2 char value cannot match random
+  requests or pollute the observed set. Unit test: `tests/test_observed_min_length.py`
+  (4 cases, pass).
