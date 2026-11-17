@@ -3,13 +3,29 @@
 // 1. Watches typing in sensitive fields.  2. Holds every send once something sensitive is typed.
 // 3. Asks Python (window.__qg_decide) to judge it, then releases or drops it.
 (() => {
-  const SENSITIVE = 'input[type="password"], input[autocomplete="one-time-code"]';
+  // Stage 12b: which fields count as sensitive. Password and one-time-code fields
+  // always; a "code/pin" field only when a credential-ish word is present
+  // (linking / verification / pairing / auth) or an OTP word - so promo, postal,
+  // zip and country codes are NOT held. (Mirrored by tests/sensor_fields.test.mjs.)
+  function isSensitiveField(el) {
+    if (!(el instanceof HTMLInputElement)) return false;
+    if (el.type === "password") return true;
+    if (el.autocomplete === "one-time-code") return true;
+    const hay = `${el.name} ${el.placeholder} ${el.id} ${el.getAttribute("aria-label") || ""}`.toLowerCase();
+    if (/\b(otp|one[\s-]?time|2fa)\b/.test(hay)) return true;
+    return /\b(code|pin)\b/.test(hay) && /\b(linking|verification|verify|pairing|auth)/.test(hay);
+  }
   const typed = new Map(); // input element -> what the user has typed in it
 
   // 1. Watch typing (capture phase: we see it before the page's own handlers).
   document.addEventListener("input", (event) => {
     const el = event.target;
-    if (el instanceof HTMLInputElement && el.matches(SENSITIVE)) typed.set(el, el.value);
+    if (isSensitiveField(el)) {
+      typed.set(el, el.value);
+      // Share observed values with Python NOW, so the network layer can catch sends
+      // on channels the sensor does not wrap (image GET, an iframe's clean fetch).
+      if (window.__qg_observe) window.__qg_observe(typedValues());
+    }
   }, true);
 
   const typedValues = () => [...typed.values()].filter((v) => v);
@@ -83,4 +99,23 @@
     if (!holding()) return originalSubmit.call(this);
     judgeForm(this);
   };
+
+  // --- WebSocket (Stage 12b) ---
+  // Android note: WebView's shouldInterceptRequest cannot see WebSocket frames,
+  // so on Android this channel can ONLY be covered by this JS layer.
+  const OriginalWebSocket = window.WebSocket;
+  function GuardedWebSocket(url, protocols) {
+    const ws = protocols === undefined
+      ? new OriginalWebSocket(url) : new OriginalWebSocket(url, protocols);
+    const realSend = ws.send.bind(ws);
+    ws.send = function (data) {
+      if (!holding()) return realSend(data);
+      judge("websocket", "SEND", url, bodyText(data))
+        .then((ok) => { if (ok) realSend(data); else ws.close(); });  // block -> close the socket
+    };
+    return ws;
+  }
+  GuardedWebSocket.prototype = OriginalWebSocket.prototype;
+  ["CONNECTING", "OPEN", "CLOSING", "CLOSED"].forEach((k) => { GuardedWebSocket[k] = OriginalWebSocket[k]; });
+  window.WebSocket = GuardedWebSocket;
 })();

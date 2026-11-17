@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bean Corner Cafe - Checkout</title></head>
+<body>
+  <h1>Bean Corner Cafe</h1>
+  <p>LAB HARMLESS PAGE - promo / postal / country-code fields that must NOT be held. Fake data only.</p>
+  <input name="promo" placeholder="Promo code">
+  <input name="postal" placeholder="Postal code">
+  <input name="country_code" placeholder="Country code">
+  <button type="button" id="apply">Apply</button>
+  <script>
+    document.getElementById("apply").addEventListener("click", () => {
+      const promo = document.querySelector('input[name="promo"]').value;
+      const postal = document.querySelector('input[name="postal"]').value;
+      fetch("http://127.0.0.1:8003/redeem", {            // same-origin, harmless
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: "promo=" + encodeURIComponent(promo) + "&postal=" + encodeURIComponent(postal),
+      });
+    });
+  </script>
+</body></html>

