@@ -78,10 +78,15 @@ async def visit_and_interact(
     sensor: Guard | None = None,
     settle_ms: int = 0,
     pre_click: str | None = None,
+    solve=None,
 ) -> str:
     """Open a page like a phone, optionally wait for late content, then fill any
     sensitive fields present and submit. Used by the Stage 11 attack harness,
     where field names and timing vary from page to page.
+
+    `solve`, if given, is an async callback(page) the LAB harness provides to pass
+    a page-specific gate (e.g. a CAPTCHA). It is only a hook-point: the harness
+    supplies the logic; no lab-specific code lives in this module.
     """
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=headless)
@@ -97,6 +102,8 @@ async def visit_and_interact(
             guard.page = PageInfo(page.url, await page.title())
         if settle_ms:
             await page.wait_for_timeout(settle_ms)  # let delayed forms appear
+        if solve is not None:
+            await solve(page)                        # lab-provided gate step (e.g. CAPTCHA)
         if pre_click and await page.query_selector(pre_click):
             await page.click(pre_click)              # pass a gate (e.g. CAPTCHA)
             await page.wait_for_timeout(500)         # let the real form appear

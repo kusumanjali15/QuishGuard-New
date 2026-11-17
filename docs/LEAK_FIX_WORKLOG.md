@@ -203,3 +203,64 @@ The pages that must NOT be held are correctly excluded:
 - `link_scam_benign` — field is "Share code": has "code" but no credential word.
 Harness now prints the held pages BY NAME and a `WRONG holds` line (held pages with
 no real sensitive field — must be empty). Confirm on the next rerun.
+
+---
+
+## Step 6 — distorted-code CAPTCHA with a lab-only hook  ✅ (code; rerun on Windows)
+
+**Why:** the old CAPTCHA was a one-click "I'm not a robot" button, which any
+automated sandbox (including a WHALE-style decoy-credential probe) passes trivially.
+A real interaction-gated kit shows a challenge a bot cannot solve. We need our own
+lab victim to still drive the page (to test the defence), without giving automated
+probes a free pass - so the solving ability is a *lab-only hook*, not a weakness in
+the page's logic.
+
+**How the page works (`captcha_ws_leak.html`, and benign twin `captcha_ws_benign.html`):**
+1. On load it generates a random 5-char `CODE` and draws it **distorted** to a
+   `<canvas>` (rotated glyphs, random colours, noise lines) - not machine-readable
+   without OCR.
+2. The login form starts `display:none`. It is revealed ONLY when the typed code
+   matches `CODE`; on success the gate element is removed from the DOM.
+3. Only then can the login be filled and the credential sent (WebSocket for the
+   attack page, same-origin fetch for the benign twin).
+
+**The lab-only hook:**
+- Each page sets `window.__LAB_CAPTCHA_CODE = CODE`, inside a block clearly marked
+  `LAB-ONLY HOOK`. It stands in for a human reading the image.
+- The solver `drive_captcha(page)` lives in the **lab harness** (`lab/run_comparison.py`):
+  it reads `__LAB_CAPTCHA_CODE`, types it, clicks Verify. Registered in `SOLVERS`
+  for the two captcha pages and passed to `visit_and_interact`.
+- `src/quishguard/victim.py` gained only a GENERIC `solve=<callback>` hook-point; it
+  contains no lab-specific code. **The hook is never in the sensor/guard** (sensor.js,
+  guard.py, rules.py, sensitive.py are untouched by this step).
+
+**Blind-victim test (`tests/test_captcha_gate.py`):** starts the attack server on an
+ephemeral port and drives `captcha_ws_leak.html` two ways:
+- hooked victim (reads `__LAB_CAPTCHA_CODE`) -> login form becomes visible -> PASS.
+- blind victim (types "00000") -> wrong code -> login form stays hidden -> PASS
+  (asserts it CANNOT reach the form, so no credential can be sent).
+This is the evidence that the distorted-code gate stops a probe that merely fills
+fields, while our instrumented victim still exercises the defence.
+
+**Paper phrasing (honest):** the distorted-code CAPTCHA models an interaction-gated
+kit. Our evaluation victim is given a lab-only oracle for the code so it can drive
+the page; this is an evaluation affordance, not part of QuishGuard. A real
+automated attacker without that oracle does not pass the gate (shown by the blind
+test), which is exactly why interaction-gated pages defeat a bounded decoy probe
+and motivate a runtime (not pre-release) defence.
+
+### Rerun + test checklist (Windows)
+    python lab\run_comparison.py          # CAPTCHA + WebSocket must stay BLOCK (sensor); 0/7 blocked
+    pytest tests\test_captcha_gate.py     # 2 passed: hooked passes, blind cannot
+
+### Correction after rerun (2026-11-17): keep the CAPTCHA load-time MISS
+First step-6 rerun showed the CAPTCHA row's Load-time column as **catch** (was
+**miss**). Cause: the redesigned page shipped the login `<form>` (password field)
+in its HTML at load, so the load-time snapshot saw a sensitive field. That removes
+the property this scenario exists to demonstrate - an interaction-gated page whose
+sensitive content appears ONLY after the gate, which a pre-release/static check
+misses. Fixed: the login form is now INJECTED into `#slot` only after the code is
+verified (as the original one-click page did), so at load there is nothing
+sensitive to flag. Expected after re-rerun: CAPTCHA Load-time = **miss** again,
+QuishGuard = **BLOCK** (sensor). Blind-victim test unaffected (it checks the form
+is revealed, which still only happens after a correct code).

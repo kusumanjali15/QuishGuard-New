@@ -4,19 +4,44 @@
 <title>Bean Corner Cafe - Secure sign-in</title></head>
 <body>
   <h1>Bean Corner Cafe</h1>
-  <p style="color:#a00">LAB BENIGN PAGE - CAPTCHA gate, then login to OUR OWN server (counterpart).</p>
-  <div id="slot"><button type="button" id="captcha">I'm not a robot</button></div>
+  <p style="color:#a00">LAB BENIGN PAGE - distorted-code CAPTCHA, then login to OUR OWN server (counterpart).</p>
+
+  <div id="gate">
+    <canvas id="captcha_img" width="150" height="48" aria-label="distorted verification code"></canvas>
+    <div><input id="captcha_input" placeholder="Type the code shown"></div>
+    <button type="button" id="verify">Verify</button>
+    <p id="err" style="color:#a00"></p>
+  </div>
+  <div id="slot"></div>   <!-- login form injected here ONLY after the gate is passed -->
 
   <script>
-    document.getElementById("captcha").addEventListener("click", () => {
+    function randCode(n){ const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s="";
+      for(let i=0;i<n;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; }
+    const CODE = randCode(5);
+    const ctx = document.getElementById("captcha_img").getContext("2d");
+    ctx.fillStyle="#eee"; ctx.fillRect(0,0,150,48); ctx.font="26px monospace";
+    for(let i=0;i<CODE.length;i++){ ctx.save(); ctx.translate(14+i*26,34);
+      ctx.rotate((Math.random()-0.5)*0.6); ctx.fillStyle=`hsl(${Math.random()*360},60%,35%)`;
+      ctx.fillText(CODE[i],0,0); ctx.restore(); }
+    for(let i=0;i<6;i++){ ctx.strokeStyle=`hsl(${Math.random()*360},50%,50%)`; ctx.beginPath();
+      ctx.moveTo(Math.random()*150,Math.random()*48); ctx.lineTo(Math.random()*150,Math.random()*48); ctx.stroke(); }
+
+    // ===== LAB-ONLY HOOK (test harness use) - same as the attack twin ====
+    window.__LAB_CAPTCHA_CODE = CODE;
+    // ====================================================================
+
+    document.getElementById("verify").addEventListener("click", () => {
+      if (document.getElementById("captcha_input").value.trim().toUpperCase() !== CODE) {
+        document.getElementById("err").textContent = "Incorrect code, try again"; return;
+      }
+      document.getElementById("gate").remove();
       document.getElementById("slot").innerHTML =
         '<input name="username" placeholder="Member name">' +
         '<input name="password" type="password" placeholder="Password">' +
-        '<button type="button" id="login">Log in</button>';
-      document.getElementById("login").addEventListener("click", () => {
+        '<button type="button" id="signin">Log in</button>';
+      document.getElementById("signin").addEventListener("click", () => {
         const p = document.querySelector('input[name="password"]').value;
-        // Legitimate: posts to OUR OWN origin, an allowed channel.
-        fetch("http://127.0.0.1:8003/login", {
+        fetch("http://127.0.0.1:8003/login", {              // legitimate same-origin send
           method: "POST",
           headers: {"Content-Type": "application/x-www-form-urlencoded"},
           body: "password=" + encodeURIComponent(p),

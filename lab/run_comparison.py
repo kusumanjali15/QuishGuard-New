@@ -30,6 +30,23 @@ from quishguard.netlog import origin_of  # noqa: E402
 from quishguard.rules import ScanContext  # noqa: E402
 from quishguard.victim import visit_and_interact  # noqa: E402
 
+async def drive_captcha(page) -> None:
+    """LAB-ONLY CAPTCHA solver. A human reads the distorted code off the image; our
+    automated victim cannot OCR, so it reads the expected code from the lab-only
+    window.__LAB_CAPTCHA_CODE hook that exists ONLY on lab test pages and is NEVER
+    part of the sensor/guard. A blind decoy-credential probe has no such hook and
+    cannot pass the gate (see tests/test_captcha_gate.py)."""
+    code = await page.evaluate("() => window.__LAB_CAPTCHA_CODE || null")
+    if not code:
+        return
+    await page.fill("#captcha_input", code)
+    await page.click("#verify")
+    await page.wait_for_timeout(200)
+
+
+# Lab pages that need a gate solved before the login form appears.
+SOLVERS = {"captcha_ws_leak.html": drive_captcha, "captcha_ws_benign.html": drive_captcha}
+
 ATTACKER_LOG = ROOT / "logs" / "attacker.log"
 PASSWORD, OTP, LINK_CODE = "Lab-Pass-4821", "123456", "LINK-7788"
 
@@ -38,7 +55,7 @@ ATTACKS = [
     ("Early send",          "beacon_leak.html",      0,    None),
     ("Pixel keylogger",     "pixel_leak.html",       0,    None),
     ("Delayed form",        "otp_late_leak.html",    3000, None),
-    ("CAPTCHA + WebSocket", "captcha_ws_leak.html",  0,    "#captcha"),
+    ("CAPTCHA + WebSocket", "captcha_ws_leak.html",  0,    None),
     ("Linking-code lure",   "link_scam_leak.html",   0,    None),
     ("Hook evasion",        "iframe_evade_leak.html", 0,   None),
     ("Linking-code (no brand)", "link_scam_nobrand_leak.html", 0, None),
@@ -49,7 +66,7 @@ BENIGN = [
     "promo_benign.html",
 ]
 BENIGN_SETTLE = {"otp_late_benign.html": 3000}
-BENIGN_CLICK = {"captcha_ws_benign.html": "#captcha"}
+BENIGN_CLICK = {}  # captcha twin now driven by the SOLVERS gate solver
 
 
 class ExclusiveHTTPServer(HTTPServer):
@@ -88,8 +105,10 @@ async def run_runtime(url: str, protect: bool, settle_ms: int, pre_click: str | 
     sensor = Guard(scan=ScanContext(from_qr=True), observed=observed) if protect else None
     guard = Guard(scan=ScanContext(from_qr=True), observed=observed) if protect else None
     before = len(log_lines())
+    solve = SOLVERS.get(url.rsplit("/", 1)[-1])
     with contextlib.redirect_stdout(io.StringIO()):
-        await visit_and_interact(url, guard=guard, sensor=sensor, settle_ms=settle_ms, pre_click=pre_click)
+        await visit_and_interact(url, guard=guard, sensor=sensor, settle_ms=settle_ms,
+                                 pre_click=pre_click, solve=solve)
     await asyncio.sleep(0.5)
     leaked = count_leaks(log_lines()[before:])
     sensor_stop = bool(sensor) and any("BLOCK" in ln or "dropped" in ln for ln in sensor.log)
