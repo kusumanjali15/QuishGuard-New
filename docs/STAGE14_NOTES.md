@@ -70,6 +70,22 @@ Per UNIQUE page (dedup by domain; several flagged rows are the same page/templat
 Per-row and per-unique are close here, so the duplication did not materially bias precision;
 both are reported so the reader can see that.
 
+Random 100-row sheet (representative sample, not flagged-stratified), detectors 1a and 5b:
+
+| detector | n | precision | 95% CI | per-unique |
+|---|---|---|---|---|
+| 1a multi-step (id, no password) | 8  | 12.5% | 2.2-47.1  | 12.5% (8, no repeats) |
+| 5b dead / parked (weak)         | 21 | 52.4% | 32.4-71.7 | 52.4% (21, no repeats) |
+
+(From `labels.csv`; these flagged rows had no repeated domains, so per-row = per-unique.
+Being from the random sample they estimate precision on a representative draw of flagged
+pages, not an oversample.)
+
+5b's precision (52.4%) says how many of the pages it flags as dead really are dead; the
+~48% that are NOT are live/real pages that would be WRONGLY removed from the "live page,
+no inputs" pool (open-case-1) if 5b were used to clean it. Dead pages 5b MISSES (its
+recall) are not measured.
+
 **These are low.** The raw [HEUR] firing rates OVERCOUNT: most flags are keyword/host
 matches that are not the thing (a page that merely loads a Cloudflare CDN; "not a robot"
 text that is not a gate; "payment" wording on a normal page).
@@ -106,10 +122,32 @@ all network blocked), not the live site. Rules applied:
 - fake-shop homepage with "credit card" only in the footer -> 3=0 (incidental mention, not a
   page asking for a code or payment).
 - maintenance / under-construction placeholder -> 4=0 (a placeholder, not a JS-rendered kit).
+- 1a: a phone-ONLY field as a login/verification first step (e.g. Telegram takeover) -> 1;
+  username+password on one page -> 0; sign-up / subscribe or contact / delivery forms -> 0.
+- 5b: loading / "enable JavaScript" pages -> 0 (script-driven, not dead); 404 / suspended /
+  parked / under-construction / maintenance -> 1; only a "Made in Webflow" badge -> skip
+  (content may be hidden without JS).
 
-STILL UNVALIDATED: the random 100-row sheet (`lab/labels.csv`) is NOT yet labelled, so the
-common detectors not in the supplement (1a multi-step, 5b dead-weak, 7 brand mention) have
-no precision estimate. Label `labels.csv` and rerun `--precision` to close that gap.
+### Annotator observations (incidental, counts only)
+
+Noted by the single annotator while reviewing the rendered pages, OUTSIDE the detector
+truth labels. These are the annotator's own tallies; ranges mark borderline cases. No claim
+is made beyond the counts.
+
+Random 100-row sheet:
+- Facebook session-cookie theft (c_user / xs fields): 1
+- Telegram phone-number takeover lures: 1-2 (mmx.fgc.mybluehost.me; possibly also chaineth.top)
+- Benign-looking pages (possible dataset mislabels): >= 1 (e.g. a 163.com unsubscribe page; exact count not tallied)
+
+Flagged supplement:
+- Fake Cloudflare / CAPTCHA look-alikes (imitation, not the real widget): 1-2
+- Real Cloudflare error pages (451 / 522) flagged by 2b: 2
+- Same fake-shop template on different domains: 3
+- Kit pages with an embedded Turnstile widget: 3
+
+PARTLY VALIDATED: the random 100-row sheet (`lab/labels.csv`) has now been labelled for
+1a and 5b (table above). Still without a precision estimate: 7 brand mention (the other
+detectors were not flagged in the random sample). Label those in `labels.csv` if needed.
 
 Note (both ways): even validated, these are DETECTED prevalence = a lower bound on true
 prevalence, since recall (missed cases) was never measured; precision only bounds the

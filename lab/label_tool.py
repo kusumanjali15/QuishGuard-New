@@ -5,6 +5,7 @@
   python lab\\label_tool.py --main --only 1a,5b   # only those detectors (name or prefix)
 
 For each page: 1 = it really IS this characteristic, 0 = false flag, s = skip, q = save & quit.
+You may type an optional note after the answer, e.g. `1 embedded turnstile` - saved to a notes column.
 """
 
 import sys
@@ -25,7 +26,7 @@ QUESTIONS = {
 }
 
 
-def ask(detector: str, ctx: dict) -> str:
+def ask(detector: str, ctx: dict) -> tuple[str, str]:
     print("\n" + "-" * 72)
     print(f"detector : {detector}")
     print(f"url      : {ctx['url']}")
@@ -37,9 +38,12 @@ def ask(detector: str, ctx: dict) -> str:
     print("text     : " + textwrap.shorten(ctx["text"], width=500, placeholder=" ..."))
     q = QUESTIONS.get(detector, f"Does this page really have '{detector}'?")
     while True:
-        a = input(f"\n{q}  [1=yes / 0=no / s=skip / q=save&quit]: ").strip().lower()
+        raw = input(f"\n{q}  [1/0/s/q; optional note after the answer]: ").strip()
+        parts = raw.split(maxsplit=1)
+        a = parts[0].lower() if parts else ""
+        note = parts[1].strip() if len(parts) > 1 else ""
         if a in ("1", "0", "s", "q"):
-            return a
+            return a, note
 
 
 def _nums(r, extra=True) -> str:
@@ -57,13 +61,15 @@ def label_supplement() -> None:
     for i, idx in enumerate(todo, 1):
         r = df.loc[idx]
         print(f"\n[{i}/{len(todo)}]", end="")
-        a = ask(r["detector"], {"url": r["url"], "title": r["title"], "evidence": r["evidence"],
-                                "screenshot": r.get("screenshot", ""), "nums": _nums(r), "text": r["text"]})
+        a, note = ask(r["detector"], {"url": r["url"], "title": r["title"], "evidence": r["evidence"],
+                                      "screenshot": r.get("screenshot", ""), "nums": _nums(r), "text": r["text"]})
         if a == "q":
             break
         if a == "s":
             continue
         df.loc[idx, "truth"] = a
+        if note:
+            df.loc[idx, "notes"] = note
         df.to_csv(path, index=False, encoding="utf-8-sig")
     df.to_csv(path, index=False, encoding="utf-8-sig")
     print(f"\nSaved {path.name}.")
@@ -95,8 +101,8 @@ def label_main(only: list[str] | None = None) -> None:
         for i, idx in enumerate(todo, 1):
             r = df.loc[idx]
             print(f"\n[{i}/{len(todo)}]", end="")
-            a = ask(det, {"url": r["url"], "title": r["title"], "evidence": r[ecol],
-                          "screenshot": r.get("screenshot", ""), "nums": _nums(r, extra=False), "text": r["text"]})
+            a, note = ask(det, {"url": r["url"], "title": r["title"], "evidence": r[ecol],
+                                "screenshot": r.get("screenshot", ""), "nums": _nums(r, extra=False), "text": r["text"]})
             if a == "q":
                 df.to_csv(path, index=False, encoding="utf-8-sig")
                 print(f"\nSaved {path.name}.")
@@ -104,6 +110,8 @@ def label_main(only: list[str] | None = None) -> None:
             if a == "s":
                 continue
             df.loc[idx, tcol] = a
+            if note:
+                df.loc[idx, f"notes::{det}"] = note
             df.to_csv(path, index=False, encoding="utf-8-sig")
     print(f"\nSaved {path.name}.")
 
