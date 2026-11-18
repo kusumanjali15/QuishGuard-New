@@ -47,27 +47,65 @@ the detector FIRED on, hand-labelled against the saved HTML rendered offline (JS
 network blocked). "Precision" = of the pages a detector flags, the fraction that genuinely
 are that thing (Wilson 95% CI):
 
-| detector | n | precision | 95% CI |
+Per flagged row (n = rows labelled; 1 row of 2a was skipped - an invisible-reCAPTCHA
+notice only, not a visible gate):
+
+| detector | n | skipped | precision | 95% CI |
+|---|---|---|---|---|
+| 2a CAPTCHA widget          | 19 | 1 | 10.5% | 2.9-31.4 |
+| 2b Cloudflare interstitial | 20 | 0 | 20.0% | 8.1-41.6 |
+| 3 non-credential lure      | 20 | 0 | 40.0% | 21.9-61.3 |
+| 4 script-driven            | 20 | 0 | 30.0% | 14.5-51.9 |
+
+Per UNIQUE page (dedup by domain; several flagged rows are the same page/template repeated
+- e.g. yenib508.top x5 in #3, sunebech.dk x3 in 2b, summit-dsm.com x2 in 2a):
+
+| detector | unique n | precision | 95% CI |
 |---|---|---|---|
-| 2a CAPTCHA widget          | 19 | 10.5% | 2.9-31.4 |
-| 2b Cloudflare interstitial | 20 | 20.0% | 8.1-41.6 |
-| 3 non-credential lure      | 20 | 40.0% | 21.9-61.3 |
-| 4 script-driven            | 20 | 30.0% | 14.5-51.9 |
+| 2a CAPTCHA widget          | 18 | 11.1% | 3.1-32.8 |
+| 2b Cloudflare interstitial | 17 | 17.6% | 6.2-41.0 |
+| 3 non-credential lure      | 13 | 38.5% | 17.7-64.5 |
+| 4 script-driven            | 18 | 33.3% | 16.3-56.3 |
+
+Per-row and per-unique are close here, so the duplication did not materially bias precision;
+both are reported so the reader can see that.
 
 **These are low.** The raw [HEUR] firing rates OVERCOUNT: most flags are keyword/host
 matches that are not the thing (a page that merely loads a Cloudflare CDN; "not a robot"
-text that is not a gate; "payment" wording on a normal page). A corrected prevalence
-estimate is roughly firing_rate x precision, with wide uncertainty from the small samples:
-- 2a captcha:      4.18% x 10.5% ~ 0.4% true (very rough)
-- 2b cloudflare:   3.13% x 20.0% ~ 0.6%
-- 3 non-cred lure: 0.33% x 40.0% ~ 0.1%
-- 4 script-driven: ~1.3-2.0% x 30.0% ~ 0.4-0.6%
+text that is not a gate; "payment" wording on a normal page).
 
-So cite each [HEUR] figure as "detector flagged X%; precision ~P% (n=20, wide CI)", never
-as confirmed prevalence. With n=19-20 the CIs are very wide - these bound the order of
+firing_rate x precision is a ROUGH LOWER ESTIMATE of true prevalence, NOT a corrected
+prevalence: it counts only pages the detector flagged AND got right and ignores pages the
+detector MISSED (recall was never measured), so true prevalence is AT LEAST this (modulo
+sampling):
+- 2a captcha:      4.18% x 10.5% ~ >= 0.4% (very rough)
+- 2b cloudflare:   3.13% x 20.0% ~ >= 0.6%
+- 3 non-cred lure: 0.33% x 40.0% ~ >= 0.1%
+- 4 script-driven: ~1.3-2.0% x 30.0% ~ >= 0.4-0.6%
+
+So cite each [HEUR] figure as "detector flagged X%; precision ~P% (n<=20, wide CI)", never
+as confirmed prevalence. With n=13-20 the CIs are very wide - these bound the order of
 magnitude, not a precise value. The low precision is itself a finding: hand-written
 keyword/host heuristics on raw phishing snapshots are noisy, which is exactly why accurate
 detection needs real labelled data and trained models, not rules.
+
+**Do NOT re-tune the detectors on these labels** - that would be fitting to the test set and
+would invalidate these precision numbers. Any improved detector must be evaluated on a FRESH
+labelled sample.
+
+### Labeling protocol & codebook
+
+Single annotator (the author); no second labeller, so no inter-annotator agreement was
+measured - a limitation. Rows were judged against the saved HTML rendered offline (JS off,
+all network blocked), not the live site. Rules applied:
+- invisible reCAPTCHA notice only, no visible challenge -> skip (1 row, 2a).
+- kit page with an embedded Turnstile / hCaptcha / reCAPTCHA widget -> 2a=1, 2b=0.
+- fake Cloudflare / reCAPTCHA look-alike (imitation, not the real widget) -> 0.
+- real Cloudflare ERROR page (451 / 522 etc.) -> 2b=0 (an error page, not a "checking your
+  browser" challenge interstitial).
+- fake-shop homepage with "credit card" only in the footer -> 3=0 (incidental mention, not a
+  page asking for a code or payment).
+- maintenance / under-construction placeholder -> 4=0 (a placeholder, not a JS-rendered kit).
 
 STILL UNVALIDATED: the random 100-row sheet (`lab/labels.csv`) is NOT yet labelled, so the
 common detectors not in the supplement (1a multi-step, 5b dead-weak, 7 brand mention) have
