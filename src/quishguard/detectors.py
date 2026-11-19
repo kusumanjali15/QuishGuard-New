@@ -316,3 +316,77 @@ def form_action_breakdown(df: pd.DataFrame):
         rows.append({"group": g, "pct_of_pages_with_forms": round(100 * k / n, 2) if n else 0.0,
                      "95ci": f"{round(100*lo,2)}-{round(100*hi,2)}"})
     return pd.DataFrame(rows), n
+
+
+def row_evidence(row, name: str) -> str:
+    """Human-readable reason a detector fired on one row (for label sheets)."""
+    def lists(*cols):
+        out = []
+        for c in cols:
+            out += _lower_list(row.get(c))
+        return " ".join(out)
+
+    text = _s(row.get("extracted_text")).lower()
+    title = _s(row.get("title")).lower()
+    if name == "2a_captcha_widget":
+        hay = lists("external_script_urls", "iframe_srcs", "external_domains")
+        for m in CAPTCHA_WIDGET_HOSTS:
+            if m in hay:
+                return f"host:{m}"
+        for m in CAPTCHA_TEXT_MARKERS:
+            if m in text:
+                return f"text:{m}"
+        return ""
+    if name == "2b_cloudflare_interstitial":
+        hay = lists("external_script_urls", "iframe_srcs", "external_domains")
+        for m in CLOUDFLARE_HOSTS:
+            if m in hay:
+                return f"host:{m}"
+        for m in CLOUDFLARE_TEXT_MARKERS:
+            if m in text:
+                return f"text:{m}"
+        return ""
+    if name == "3_non_credential_lure":
+        for m in NON_CRED_TERMS:
+            if m.lower() in text:
+                return f"term:{m}"
+        for f in _as_list(row.get("input_fields")):
+            if _s(f.get("autocomplete")).lower() in PAYMENT_AUTOCOMPLETE:
+                return f"autocomplete:{_s(f.get('autocomplete'))}"
+        return ""
+    if name == "4_script_driven":
+        return (f"js_bytes={_s(row.get('inline_scripts_total_bytes'))},"
+                f"text_len={_s(row.get('text_length'))},"
+                f"inputs={_s(row.get('input_count'))},forms={_s(row.get('form_count'))}")
+    if name == "7_brand_mention":
+        for b in BRAND_TERMS:
+            if re.search(r"\b" + re.escape(b) + r"\b", title + " " + text):
+                return f"brand:{b}"
+        return ""
+    if name == "1a_multi_step_no_password":
+        for f in _as_list(row.get("input_fields")):
+            typ = _s(f.get("type")).lower()
+            blob = " ".join(_s(f.get(k)).lower() for k in ("name", "placeholder", "autocomplete", "id"))
+            if typ in IDENTIFIER_TYPES or any(h in blob for h in IDENTIFIER_HINTS):
+                return f"field:{typ or blob[:20]}"
+        return ""
+    if name == "6_cross_site_form_action":
+        page = _reg_domain(_s(row.get("domain")))
+        for a in _as_list(row.get("form_actions")):
+            a = _s(a).strip()
+            if a and not a.startswith("#") and urlsplit(a).netloc and _reg_domain(a) != page:
+                return f"action_reg:{_reg_domain(a)}"
+        return ""
+    if name == "5b_dead_weak":
+        for m in PARKED_MARKERS:
+            if m in title:
+                return f"title:{m}"
+        return f"text_len={_s(row.get('text_length'))}"
+    if name == "5a_dead_strong":
+        return f"http_status={_s(row.get('http_status'))},has_html={_s(row.get('has_html'))}"
+    if name in ("1b_no_input_fields", "1b_live_no_inputs"):
+        return f"input_count={_s(row.get('input_count'))}"
+    if name == "1c_password_present":
+        return "has_password_field=true"
+    return ""
+

@@ -8,3 +8,7 @@ data/
 .env
 .claude/settings.local.json
 .DS_Store
+
+# labeling artifacts (regenerable / large)
+lab/label_shots/
+lab/_label_pool.pkl

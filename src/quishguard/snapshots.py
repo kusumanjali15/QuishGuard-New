@@ -33,7 +33,10 @@ SELECTED_COLUMNS = [
 ]
 # HEAVY blobs: only for exact dedup, parse-verification, and the OC2 inline-JS
 # search. Fetched as a small first-pages sample (see load_heavy_sample).
-HEAVY_COLUMNS = ["id", "html", "inline_scripts"]
+# HEAVY blobs + the light structural columns needed to run loose dedup on the
+# same rows (title/input_fields/counts are tiny; they barely add to the download).
+HEAVY_COLUMNS = ["id", "html", "inline_scripts", "title", "input_fields",
+                 "input_count", "form_count"]
 _WS = re.compile(r"\s+")
 
 
@@ -280,17 +283,91 @@ def export_label_set(path, n: int = 100, seed: int = 7, df: pd.DataFrame | None 
     if df is None:
         df = load_sample()
     s = df.sample(n=min(n, len(df)), random_state=seed).reset_index(drop=True)
+    txt = s["extracted_text"].fillna("").astype(str).str.replace(r"\s+", " ", regex=True)
     out = pd.DataFrame({
         "id": s["id"], "domain": s["domain"], "url": s.get("final_url"),
-        "title": s["title"].fillna("").astype(str).str.slice(0, 120),
-        "text": s["extracted_text"].fillna("").astype(str).str.replace(r"\s+", " ", regex=True).str.slice(0, 300),
-        "has_password_field": s["has_password_field"], "input_count": s["input_count"],
+        "title": s["title"].fillna("").astype(str).str.slice(0, 200),
+        "text": txt.str.slice(0, 1200),
+        "text_length": s["text_length"], "has_password_field": s["has_password_field"],
+        "input_count": s["input_count"], "form_count": s["form_count"],
+        "inline_scripts_bytes": s["inline_scripts_total_bytes"],
     })
+    from quishguard.detectors import row_evidence
     for name, fn in LIGHT_DETECTORS.items():
-        out[f"flag::{name}"] = fn(s).astype(int).values
+        flags = fn(s).astype(int).values
+        out[f"flag::{name}"] = flags
+        out[f"evidence::{name}"] = [row_evidence(s.iloc[i], name) if flags[i] else "" for i in range(len(s))]
         out[f"truth::{name}"] = ""          # fill 1 (really is) / 0 (false flag)
     out.to_csv(path, index=False, encoding="utf-8-sig")
     return path, len(out)
+
+
+def export_supplement(path, detectors=("2a_captcha_widget", "2b_cloudflare_interstitial",
+                                       "3_non_credential_lure", "4_script_driven"),
+                      per: int = 20, seed: int = 11, df: pd.DataFrame | None = None):
+    """Flagged-stratified sheet: up to `per` FLAGGED rows for each rare detector,
+    with evidence and a single truth column. For precision on detectors too rare
+    in a 100-row random sample."""
+    from quishguard.detectors import LIGHT_DETECTORS, row_evidence
+    if df is None:
+        df = load_sample()
+    rows = []
+    for name in detectors:
+        flagged = df[LIGHT_DETECTORS[name](df)]
+        samp = flagged.sample(n=min(per, len(flagged)), random_state=seed)
+        for _, r in samp.iterrows():
+            rows.append({
+                "detector": name, "id": r["id"], "domain": r["domain"], "url": r.get("final_url"),
+                "title": _s(r.get("title"))[:200],
+                "text": re.sub(r"\s+", " ", _s(r.get("extracted_text")))[:1200],
+                "text_length": r.get("text_length"),
+                "has_password_field": r.get("has_password_field"),
+                "input_count": r.get("input_count"), "form_count": r.get("form_count"),
+                "inline_scripts_bytes": r.get("inline_scripts_total_bytes"),
+                "evidence": row_evidence(r, name), "flag": 1, "truth": "",
+            })
+    out = pd.DataFrame(rows)
+    out.to_csv(path, index=False, encoding="utf-8-sig")
+    return path, len(out)
+
+
+def supplement_precision(path):
+    from quishguard.detectors import wilson_ci
+    df = pd.read_csv(path)
+    rows = []
+    for name, g in df.groupby("detector"):
+        lab = g[pd.to_numeric(g["truth"], errors="coerce").isin([0, 1])]
+        n = len(lab)
+        k = int((pd.to_numeric(lab["truth"], errors="coerce") == 1).sum()) if n else 0
+        lo, hi = wilson_ci(k, n)
+        rows.append({"detector": name, "flagged_labeled": n,
+                     "precision_%": round(100 * k / n, 1) if n else None,
+                     "95ci": f"{round(100*lo,1)}-{round(100*hi,1)}" if n else "n/a"})
+    return pd.DataFrame(rows)
+
+
+def heavy_estimate(k_per_shard: int = 36, shards: list[int] | None = None) -> dict:
+    """Footer-based estimate of the heavy (html+inline_scripts) download for
+    k_per_shard rows/shard. Lower bound - iter_batches reads whole pages, so the
+    real pull is somewhat larger."""
+    from huggingface_hub import HfFileSystem
+    import pyarrow.parquet as pq
+
+    fs = HfFileSystem()
+    shards = list(range(N_SHARDS)) if shards is None else list(shards)
+    heavy = {"html", "inline_scripts"}
+    est = 0.0
+    for i in shards:
+        with fs.open(_shard_path(i)) as f:
+            md = pq.ParquetFile(f).metadata
+        rg = md.row_group(0)
+        frac = min(1.0, k_per_shard / rg.num_rows)
+        for c in range(rg.num_columns):
+            col = rg.column(c)
+            if col.path_in_schema.split(".")[0] in heavy:
+                est += col.total_compressed_size * frac
+    return {"rows": k_per_shard * len(shards), "k_per_shard": k_per_shard,
+            "approx_download_mb_lower_bound": round(est / 1e6, 1)}
 
 
 def label_precision(path):
@@ -313,3 +390,64 @@ def label_precision(path):
                      "precision_%": round(100 * k / n, 1) if n else None,
                      "95ci": f"{round(100*lo,1)}-{round(100*hi,1)}" if n else "n/a"})
     return pd.DataFrame(rows)
+
+URL_COLUMNS = ["id", "url", "final_url", "domain", "redirect_chain", "http_status",
+               "has_password_field"]
+
+
+def export_url_dataset(path, df: pd.DataFrame | None = None):
+    """Write the phishing URLs + cheap URL features to a CSV you can open/show.
+    Phishing-only (no benign) - descriptive, or a base to pair with a benign set."""
+    import ipaddress
+    from urllib.parse import urlsplit
+    from quishguard.detectors import _reg_domain
+
+    if df is None:
+        df = pd.concat([_read_selected(i, URL_COLUMNS) for i in range(N_SHARDS)],
+                       ignore_index=True)
+
+    def host_of(u):
+        return urlsplit(_s(u)).netloc.split("@")[-1].split(":")[0].lower()
+
+    def is_ip(h):
+        try:
+            ipaddress.ip_address(h)
+            return True
+        except ValueError:
+            return False
+
+    urls = df["url"].map(_s)
+    hosts = urls.map(host_of)
+    out = pd.DataFrame({
+        "id": df["id"], "url": urls, "final_url": df["final_url"], "domain": df["domain"],
+        "http_status": df["http_status"], "has_password_field": df["has_password_field"],
+        "url_length": urls.map(len),
+        "host": hosts,
+        "registrable_domain": urls.map(lambda u: _reg_domain(_s(u))),
+        "is_https": urls.map(lambda u: _s(u).lower().startswith("https://")),
+        "has_ip_host": hosts.map(is_ip),
+        "has_at": urls.map(lambda u: "@" in _s(u)),
+        "subdomain_depth": hosts.map(lambda h: max(0, h.count(".") - 1)),
+        "path_depth": urls.map(lambda u: urlsplit(_s(u)).path.strip("/").count("/") + 1 if urlsplit(_s(u)).path.strip("/") else 0),
+        "num_digits": urls.map(lambda u: sum(c.isdigit() for c in _s(u))),
+        "redirect_count": df["redirect_chain"].map(lambda c: len(_as_list(c))),
+    })
+    out.to_csv(path, index=False, encoding="utf-8-sig")
+    return path, len(out)
+
+def load_label_pool(first_rows_per_shard: int = 300, shards: list[int] | None = None) -> pd.DataFrame:
+    """First-pages pool that ALSO carries `html` (for offline screenshot rendering)
+    plus every column the detectors need. Downloads ~first_rows_per_shard*28 rows of
+    html (a few hundred MB at 300) - earliest rows per shard (time-biased)."""
+    cols = SELECTED_COLUMNS + ["html"]
+    shards = list(range(N_SHARDS)) if shards is None else list(shards)
+    return pd.concat([_first_rows_with(i, cols, first_rows_per_shard) for i in shards],
+                     ignore_index=True)
+
+
+def input_summary(cell) -> str:
+    """input_fields -> 'type:name:placeholder | ...' (first 8)."""
+    out = [f"{_s(f.get('type'))}:{_s(f.get('name'))}:{_s(f.get('placeholder'))}"
+           for f in _as_list(cell)]
+    return " | ".join(out[:8])
+
