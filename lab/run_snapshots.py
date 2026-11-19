@@ -1,25 +1,28 @@
 """Stage 14 explorer for the phishing-snapshots dataset.
 
-  python lab\\run_snapshots.py --estimate         # per-column download sizes (footers only)
-  python lab\\run_snapshots.py --timecheck        # shard timestamp ranges
-  python lab\\run_snapshots.py                     # light sample: dedup + prevalence + form breakdown
-  python lab\\run_snapshots.py --verify            # heavy first-pages: parser agreement
-  python lab\\run_snapshots.py --heavy             # heavy sample: OC2 + exfil + exact-dedup bound
-  python lab\\run_snapshots.py --export-labels     # write lab/labels.csv (100 random rows to label)
-  python lab\\run_snapshots.py --precision         # read lab/labels.csv, report detector precision
+  --estimate        per-column download sizes (footers only)
+  --timecheck       shard timestamp ranges
+  (no flag)         light sample: dedup + prevalence + form breakdown
+  --verify          heavy first-pages: parser agreement
+  --heavy-estimate  predict the heavy (~1000-row) download size
+  --heavy           heavy ~1000-row sample: OC2 + exfil + exact-vs-loose dedup (with CIs)
+  --export-labels   write lab/labels.csv (100 random) + lab/labels_supplement.csv (flagged)
+  --precision       read both label sheets, report detector precision
 """
 
 import sys
 from pathlib import Path
 
 from quishguard.snapshots import (dedup, dedup_counts, estimate_download, export_label_set,
+                                   export_supplement, export_url_dataset, heavy_estimate,
                                    label_precision, load_heavy_sample, load_sample,
-                                   shard_time_ranges, verify_parsed_columns)
+                                   shard_time_ranges, supplement_precision, verify_parsed_columns)
 from quishguard.detectors import (automation_probe, exfil_endpoint_in_scripts,
                                    form_action_breakdown, non_credential_sweep,
-                                   prevalence_table, script_driven_sweep)
+                                   prevalence_table, script_driven_sweep, wilson_ci)
 
 LABELS = Path(__file__).with_name("labels.csv")
+SUPP = Path(__file__).with_name("labels_supplement.csv")
 
 if "--estimate" in sys.argv:
     est = estimate_download()
@@ -40,25 +43,49 @@ if "--verify" in sys.argv:
           f"{int(v['pw_mismatch'].sum())} password mismatches")
     sys.exit(0)
 
+if "--heavy-estimate" in sys.argv:
+    print(heavy_estimate())
+    sys.exit(0)
+
 if "--heavy" in sys.argv:
-    print("Loading heavy first-pages sample (html + inline_scripts)...")
-    h = load_heavy_sample()
-    exact_unique = len(dedup(h, "exact"))
-    print(f"heavy sample rows: {len(h)}  (EARLIEST per shard - time-biased)")
-    print(f"  exact-dedup unique: {exact_unique} / {len(h)}  "
-          f"-> bounds how much loose dedup over-merges")
-    print(f"  OC2 automation probe (navigator.webdriver/userAgent): {round(100*automation_probe(h).mean(),1)}%")
-    print(f"  exfil endpoint in scripts (telegram/discord/mailto): {round(100*exfil_endpoint_in_scripts(h).mean(),1)}%")
-    print("  (both heavy-sample, descriptive only)")
+    print("Loading heavy ~1000-row sample (html + inline_scripts, earliest per shard)...")
+    h = load_heavy_sample(k_per_shard=36)
+    n = len(h)
+
+    def pct_ci(series):
+        k = int(series.sum())
+        lo, hi = wilson_ci(k, n)
+        return f"{round(100*k/n,1)}%  ({round(100*lo,1)}-{round(100*hi,1)})"
+
+    exact_u, loose_u = len(dedup(h, "exact")), len(dedup(h, "loose"))
+    print(f"heavy sample rows: {n}  (EARLIEST per shard - time-biased)")
+    print(f"  on THESE rows: exact-dedup {exact_u} unique, loose-dedup {loose_u} unique / {n}")
+    print(f"    -> loose merges {exact_u - loose_u} more than exact; true distinct count sits between them")
+    print(f"  OC2 automation probe (webdriver/userAgent): {pct_ci(automation_probe(h))}")
+    print(f"  exfil endpoint in scripts (telegram/discord/mailto): {pct_ci(exfil_endpoint_in_scripts(h))}")
+    print("  (descriptive, heavy-sample only; floor for exfil since many kits exfil server-side)")
+    sys.exit(0)
+
+if "--export-urls" in sys.argv:
+    out = Path(__file__).with_name("phishing_urls.csv")
+    print("Extracting phishing URLs + features from all shards (~10-15 MB)...")
+    _, k = export_url_dataset(out)
+    print(f"wrote {k} phishing URLs to {out.name}  (phishing-only; open it in Excel)")
     sys.exit(0)
 
 if "--export-labels" in sys.argv:
-    path, k = export_label_set(LABELS)
-    print(f"wrote {k} rows to {path}. Fill each truth:: column with 1 (really is) or 0 (false flag), then --precision.")
+    _, k = export_label_set(LABELS)
+    _, sk = export_supplement(SUPP)
+    print(f"wrote {k} random rows to {LABELS.name} and {sk} flagged rows to {SUPP.name}.")
+    print("Fill each truth column with 1 (really is) / 0 (false flag), save as CSV, then --precision.")
     sys.exit(0)
 
 if "--precision" in sys.argv:
+    print("Random 100-row sheet:")
     print(label_precision(LABELS).to_string(index=False))
+    if SUPP.exists():
+        print("\nFlagged supplement (rare detectors):")
+        print(supplement_precision(SUPP).to_string(index=False))
     sys.exit(0)
 
 print("Loading LIGHT columns from all 28 shards...")
