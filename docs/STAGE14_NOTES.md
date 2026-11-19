@@ -5,6 +5,11 @@ Source: `nyuuzyou/phishing-snapshots` (CC0), 136,414 headless-Chromium captures,
 General phishing, **NOT** QR-reachable pages specifically. Numbers reported both
 per-capture and per-loose-unique-kit (the dataset is ~84% duplicate pages).
 
+> **Data privacy (labels.csv / labels_supplement.csv).** Some captured URLs contain
+> base64-encoded victim email addresses in their path or query. These label sheets are
+> committed to a PRIVATE repo only. Before ANY public release, produce a scrubbed copy -
+> keep scheme + host, drop or redact the encoded path/query parts - and release only that.
+
 ## Key finding - static form action is not a usable destination signal
 
 Among pages WITH a form action (n = 28,879):

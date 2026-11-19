@@ -3,6 +3,22 @@
 Build the prototype stage by stage. Tick a stage only when its "Done when" is true.
 Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done when** = check.
 
+## Current build order (agreed 2026-11-10)
+
+1. Finish Stage 14 precision labelling (manual labels -> precision table).  [in progress]
+2. Stage 13 - static URL baseline on Mendeley / `pirocheto/phishing-url`.  [DONE - 12b uses its score]
+3. Upgrade the Stage 11 lab pages needed for a FAIR 12b comparison on the open cases:
+   - configurable delay (5 / 10 / 20 / 30 s), past WHALE's ~4.2-5.6 s window (open case 5)
+   - a CAPTCHA automation can't pass: a distorted-code IMAGE the user must type (open case 3)
+   - the AiTM relay forwarding to our OWN Formosa Demo Bank server (open case 6)
+4. Stage 12b - WHALE-inspired baseline, compared with the live guard on open cases 1-6.
+5. Stage 16 - a MINIMAL Android interception test, done BEFORE DynaPD (RQ1 is our strongest
+   novelty; DynaPD needs an isolated machine still to be requested from the professor).
+6. Stage 14b - DynaPD live-behaviour lab (once the isolated machine is available).
+
+RQ mapping (corrected): **RQ2 prevalence = phishing-snapshots (Stage 14).** DynaPD traces
+(Stage 14b) are evidence for **RQ3/RQ4** and **training data for Stage 15**, NOT RQ2.
+
 ## Part A - Foundations
 
 - [x] **Stage 0 - Set up the workspace**
@@ -124,11 +140,14 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
     fields, where form actions point, third-party resources), with the caveat stated.
   - Done when: you have load-time numbers you could put in the paper, clearly labelled passive.
 
-- [ ] **Stage 14b - DynaPD live-behaviour lab (RQ2 core)**
+- [ ] **Stage 14b - DynaPD live-behaviour lab (RQ3/RQ4 + Stage 15 training data)**
+  - Build order: AFTER Stage 16 (needs an isolated machine - see Current build order).
   - Learn: running real de-weaponized kits safely - PHP in Docker, NO internet egress, mail
     disabled, isolated network; driving each kit with our victim + sensor to record send traces.
   - Build: a DynaPD Docker lab and a recorder that captures, per kit, which channels carry the
-    (fake) credentials and when - the evidence for RQ2 (how common the open cases are) and RQ3 (coverage).
+    (fake) credentials and when - evidence for RQ3 (coverage of the open cases) and RQ4
+    (robustness on unseen kit families), and training data for Stage 15. NOT RQ2 - prevalence
+    comes from phishing-snapshots (Stage 14).
   - Done when: you have per-kit behaviour traces recorded by our own sensor.
 
 - [ ] **Stage 15 - From rules to a behaviour model**
@@ -152,6 +171,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
 ## Part F - Android
 
 - [ ] **Stage 16 - Android interception test (Gate 1 on a phone)**
+  - Build order: a MINIMAL version runs BEFORE Stage 14b (see Current build order).
   - Learn: Android Studio, Kotlin basics, WebView, `addDocumentStartJavaScript`, `shouldInterceptRequest`.
   - Build: a minimal app that opens a lab page and tries to block each channel.
   - Also measure **time until the page is usable** by the user, to compare against WHALE's
