@@ -16,6 +16,7 @@ from quishguard.sensitive import carries_sensitive
 class Guard:
     scan: ScanContext
     typed_values: list[str] = field(default_factory=list)  # Stage 8: told; Stage 10: observed
+    observed: set[str] = field(default_factory=set)  # Stage 12b: sensor-observed values, shared across layers
     page: PageInfo | None = None   # the page currently open
     contained: bool = False        # one-way switch: True after the first block
     log: list[str] = field(default_factory=list)
@@ -26,7 +27,8 @@ class Guard:
             self.log.append(f"BLOCK (contained)  {rec.method} {rec.url}")
             return "abort"
 
-        if self.page and carries_sensitive(rec, self.typed_values):
+        values = self.typed_values + sorted(self.observed)
+        if self.page and carries_sensitive(rec, values):
             verdict = score_send(self.page, rec.url, self.scan)
             if verdict.decision == "block":
                 self.contained = True
