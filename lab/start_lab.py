@@ -10,6 +10,7 @@ from http.server import HTTPServer
 
 import bank_server
 import attack_server
+import aitm_relay
 import ws_collector
 import collector_server
 import phish_server
@@ -24,6 +25,7 @@ SERVERS = [
     ("Phishing site", phish_server.PhishHandler, 8001),
     ("Attacker collector", collector_server.CollectorHandler, 8002),
     ("Attack-page server", attack_server.AttackHandler, 8003),
+    ("AiTM relay", aitm_relay.RelayHandler, 8005),
 ]
 
 for name, handler, port in SERVERS:
