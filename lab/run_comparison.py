@@ -21,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "lab"))
 
-import attack_server, bank_server, collector_server, phish_server, ws_collector  # noqa: E402
+import aitm_relay, attack_server, bank_server, collector_server, phish_server, ws_collector  # noqa: E402
 from playwright.async_api import async_playwright  # noqa: E402
 
 from quishguard.guard import Guard  # noqa: E402
@@ -54,18 +54,19 @@ PASSWORD, OTP, LINK_CODE = "Lab-Pass-4821", "123456", "LINK-7788"
 ATTACKS = [
     ("Early send",          "beacon_leak.html",      0,    None),
     ("Pixel keylogger",     "pixel_leak.html",       0,    None),
-    ("Delayed form",        "otp_late_leak.html",    3000, None),
+    ("Delayed form (past window)", "otp_late_leak.html?delay=8000", 8500, None),
     ("CAPTCHA + WebSocket", "captcha_ws_leak.html",  0,    None),
     ("Linking-code lure",   "link_scam_leak.html",   0,    None),
     ("Hook evasion",        "iframe_evade_leak.html", 0,   None),
     ("Linking-code (no brand)", "link_scam_nobrand_leak.html", 0, None),
+    ("AiTM relay", "aitm_leak.html", 0, None),
 ]
 BENIGN = [
-    "beacon_benign.html", "pixel_benign.html", "otp_late_benign.html",
+    "beacon_benign.html", "pixel_benign.html",
     "captcha_ws_benign.html", "link_scam_benign.html", "iframe_evade_benign.html",
-    "promo_benign.html",
+    "promo_benign.html", "otp_late_benign.html?delay=8000", "aitm_benign.html",
 ]
-BENIGN_SETTLE = {"otp_late_benign.html": 3000}
+BENIGN_SETTLE = {"otp_late_benign.html?delay=8000": 8500}
 BENIGN_CLICK = {}  # captcha twin now driven by the SOLVERS gate solver
 
 
@@ -77,7 +78,8 @@ def start_servers() -> None:
     ATTACKER_LOG.parent.mkdir(parents=True, exist_ok=True)
     ATTACKER_LOG.write_text("", encoding="utf-8")  # fresh log for a clean count
     for handler, port in [(bank_server.BankHandler, 8000), (phish_server.PhishHandler, 8001),
-                          (collector_server.CollectorHandler, 8002), (attack_server.AttackHandler, 8003)]:
+                          (collector_server.CollectorHandler, 8002), (attack_server.AttackHandler, 8003),
+                          (aitm_relay.RelayHandler, 8005)]:
         handler.log_message = lambda *a: None
         try:
             srv = ExclusiveHTTPServer(("127.0.0.1", port), handler)
@@ -165,7 +167,7 @@ async def main() -> int:
             if blocked:
                 qg_fp += 1
             if held:
-                held_names.append(f.replace(".html", ""))
+                held_names.append(f.split("?")[0].replace(".html", ""))
         await browser.close()
 
     n = len(BENIGN)
@@ -183,7 +185,7 @@ async def main() -> int:
         wr = csv.DictWriter(fh, fieldnames=["scenario", "no_protection", "load_time", "quishguard", "stopped_by"])
         wr.writeheader(); wr.writerows(rows)
     HAS_REAL_SENSITIVE = {"beacon_benign", "pixel_benign", "captcha_ws_benign",
-                          "iframe_evade_benign", "otp_late_benign"}
+                          "iframe_evade_benign", "otp_late_benign", "aitm_benign"}
     wrong_holds = [h for h in held_names if h not in HAS_REAL_SENSITIVE]
     print(f"\nharmless pages HELD by the sensor: {len(held_names)}/{n}  "
           f"{sorted(held_names)}")
