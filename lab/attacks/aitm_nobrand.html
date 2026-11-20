@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account verification</title></head>   <!-- deliberately NO protected brand -->
+<body>
+  <h1>Account verification</h1>
+  <p style="color:#a00">LAB ATTACK PAGE (AiTM relay, NO brand) - same-origin post, relay forwards to the bank. Fake data only.</p>
+  <input name="username" placeholder="Username">
+  <input name="password" type="password" placeholder="Password">
+  <button type="button" id="signin">Continue</button>
+  <p id="result"></p>
+  <script>
+    document.getElementById("signin").addEventListener("click", async () => {
+      const u = document.querySelector('input[name="username"]').value;
+      const p = document.querySelector('input[name="password"]').value;
+      const r = await fetch("/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: "username=" + u + "&password=" + p,
+      });
+      document.getElementById("result").textContent = (r.ok ? "SUCCESS: " : "ERROR: ") + (await r.text());
+    });
+  </script>
+</body></html>

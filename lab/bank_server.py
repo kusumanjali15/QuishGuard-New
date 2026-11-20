@@ -32,7 +32,11 @@ class BankHandler(BaseHTTPRequestHandler):
         for name, value in fields.items():
             print(f"[bank] field {name} = {value}")
 
-        self._reply(200, b"<p>Lab: login received by Formosa Demo Bank.</p>")
+        # Validate credentials so WRONG (e.g. decoy) creds get a genuine auth error.
+        if fields.get("username") == "demo_user_01" and fields.get("password") == "Lab-Pass-4821":
+            self._reply(200, b"<p>Lab: Formosa Demo Bank - login successful.</p>")
+        else:
+            self._reply(401, b"<p>Lab: Formosa Demo Bank - incorrect username or password.</p>")
 
     def _reply(self, status: int, body: bytes) -> None:
         """Send status line, headers, blank line, then the body."""

@@ -15,6 +15,7 @@ import csv
 import io
 import sys
 import threading
+import urllib.request
 from http.server import HTTPServer
 from pathlib import Path
 
@@ -59,7 +60,8 @@ ATTACKS = [
     ("Linking-code lure",   "link_scam_leak.html",   0,    None),
     ("Hook evasion",        "iframe_evade_leak.html", 0,   None),
     ("Linking-code (no brand)", "link_scam_nobrand_leak.html", 0, None),
-    ("AiTM relay", "aitm_leak.html", 0, None),
+    ("AiTM relay", "http://127.0.0.1:8005/", 0, None),
+    ("AiTM (no brand)", "http://127.0.0.1:8005/nobrand", 0, None),
 ]
 BENIGN = [
     "beacon_benign.html", "pixel_benign.html",
@@ -87,6 +89,22 @@ def start_servers() -> None:
             sys.exit(f"Port {port} is busy - stop your lab servers first (Ctrl+C), then rerun.")
         threading.Thread(target=srv.serve_forever, daemon=True).start()
     threading.Thread(target=lambda: asyncio.run(ws_collector.main()), daemon=True).start()
+
+
+def confirm_bank_login() -> str:
+    """Positive check: lab creds really log in (200), wrong creds are rejected (401)."""
+    import urllib.error
+    def post(body: str) -> int:
+        req = urllib.request.Request("http://127.0.0.1:8000/login", data=body.encode(),
+                                     method="POST", headers={"Content-Type": "application/x-www-form-urlencoded"})
+        try:
+            return urllib.request.urlopen(req, timeout=2).status
+        except urllib.error.HTTPError as e:
+            return e.code
+    ok = post(f"username=demo_user_01&password={PASSWORD}")
+    bad = post("username=demo_user_01&password=wrong-xxxx")
+    verdict = "OK" if (ok == 200 and bad == 401) else "CHECK FAILED"
+    return f"Bank login check [{verdict}]: lab creds -> HTTP {ok} (expect 200), wrong -> HTTP {bad} (expect 401)"
 
 
 def log_lines() -> list[str]:
@@ -143,7 +161,7 @@ async def main() -> int:
         lt_page = await ctx.new_page()
 
         for label, page_file, settle_ms, pre_click in ATTACKS:
-            url = base + page_file
+            url = page_file if page_file.startswith("http") else base + page_file
             leak_none, _, _, _ = await run_runtime(url, False, settle_ms, pre_click)
             lt = await load_time_catches(lt_page, url)
             leak_qg, blocked_qg, layer_qg, _ = await run_runtime(url, True, settle_ms, pre_click)
@@ -191,6 +209,7 @@ async def main() -> int:
           f"{sorted(held_names)}")
     print("  (holding a page with a real password/OTP field is by design: hold -> judge -> allow)")
     print(f"WRONG holds (no real sensitive field, should be none): {wrong_holds or 'none'}")
+    print(confirm_bank_login())
     print(f"saved {out.relative_to(ROOT)}")
     return 0
 
