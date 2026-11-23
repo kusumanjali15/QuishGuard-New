@@ -33,7 +33,8 @@ Outcomes at 3 s and 5 s are identical (both below the 8 s delay); the delayed fo
 | **CAPTCHA + WebSocket** | B | M | **B** (real user solves) | **M** (decoy can't solve) |
 | **Linking-code (no brand)** | **M** | M | M | **B** (behavioural decoy) |
 | **AiTM (no brand)** | M | M | M | M (genuine 401) |
-| harmless twins (9, incl. promo/postal) | . | . | . | . |
+| **Decoy-aware (OC2)** | **B** (1.6 s) | M | **B** (real user) | **M** (decoy hides) |
+| harmless twins (11, incl. promo/postal/decoy_aware_benign/sso_benign) | . | . | . | . |
 | **signup_benign (accept-any)** | . | . | . | **F** |
 
 The **branded AiTM is blocked at the STATIC stage** (impersonation, score 70) in configs a/b/c,
@@ -74,6 +75,32 @@ was exercised ONLY on the no-brand AiTM**, which reaches the decoy stage and is 
 6. **False positive.** Config (c) false-blocks a legitimate ACCEPT-ANY sign-up page (`signup_benign`)
    via the "accepts" branch, at every window - the honest cost of the stronger (same-origin-aware)
    decoy rule. Configs (a)/(b) and the live guard have ZERO false blocks on all harmless twins.
+7. **Decoy-/sandbox-aware page (open case 2): the pre-release probe MISSES it, the runtime guard
+   CATCHES it.** `decoy_aware_leak.html` reveals its Formosa login only when `navigator.webdriver`
+   is false, so config (c)'s decoy probe (Playwright default = true) sees only the benign "device
+   check" page and MISSES it (timeout at every window). The live guard and config (b) run the
+   real-user profile (`webdriver` spoofed false, pre-registered as option b), so the page reveals
+   itself and the send is judged with the live title. The block is a BRAND-IMPERSONATION hit
+   (title shows "Formosa" on a non-official origin = +50, plus cross-site +30 -> score 70 >= 60);
+   both the live guard and config (b) BLOCK (~1.6 s). It is caught because the page impersonates
+   the bank once revealed, not by any webdriver signal of ours.
+   Static-only (a) misses it (nothing sensitive at load). This is the sharpest (b)-vs-(c)
+   separation in the matrix and the direct argument for a defence that runs IN the real session:
+   anti-analysis pages defeat a time-boxed pre-release probe by construction.
+8. **SSO/OAuth benign (cross-origin login to a trusted IdP): no false alarm from QuishGuard, one
+   from the reuse baseline.** `sso_benign.html` posts the bank password cross-origin to the trusted
+   identity provider (:8000). The live guard and configs (a)/(b)/(c) ALLOW it (destination is an
+   OFFICIAL/trusted origin, score 50 < 60 - cross-origin alone is not enough to block). The
+   password-reuse baseline's verdict depends on WHERE the password is typed. In a REALISTIC SSO
+   flow the relying app holds no password: it redirects to the IdP's own origin (:8000), the
+   password is typed THERE (an official origin), and the send is same-origin to :8000. With that
+   flow, BOTH the live guard and the reuse baseline ALLOW `sso_benign` (no false alarm). An
+   earlier version typed the password on the relying origin (:8003) and the reuse baseline
+   false-alarmed - that `F` was a LAB ARTIFACT of the unrealistic page, now fixed (see
+   `lab/bank_sso.html`, `lab/attacks/sso_benign.html`). CAVEAT: the live guard's ALLOW rests on
+   the IdP origin being in the trusted list (`OFFICIAL_ORIGINS["Formosa Demo Bank"]` = :8000).
+   A federated login to an IdP NOT on that list would be judged cross-site/untrusted; the
+   trusted-origin list is the policy input that makes benign SSO distinguishable from exfil.
 
 ## Stage 12c - password-reuse baseline (prior art: Password Alert / Enhanced Phishing Protection)
 
@@ -85,7 +112,8 @@ A fourth column (pre-registered in `STAGE12B_PLAN.md`): ALERT when the known ban
   password-reuse detector is blind to OTPs, linking codes and card numbers by construction.
 - One FALSE POSITIVE: `reuse_benign` (a legitimate third-party login where the user reuses the
   bank password) - the classic weakness of reuse detection: it cannot tell legitimate reuse
-  from phishing.
+  from phishing. (A realistic SSO login is NOT a false positive here: the password is typed on
+  the IdP's own official origin, so the reuse check does not fire - see finding 8.)
 - vs QuishGuard: the reuse baseline BEATS QuishGuard on exactly ONE case, the **no-brand AiTM**
   (the reused password leaves to a non-official origin, which QuishGuard's score of 20 misses).
   QuishGuard beats it on the delayed OTP and the (brand) linking-code lure, and has zero false
