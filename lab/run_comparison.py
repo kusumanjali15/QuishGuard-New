@@ -45,8 +45,23 @@ async def drive_captcha(page) -> None:
     await page.wait_for_timeout(200)
 
 
+async def drive_sso(page) -> None:
+    """Realistic federated login. The relying app holds no password: click 'Continue',
+    which redirects the whole page to the IdP origin (:8000). The caller then types the
+    password THERE, on the IdP's own official origin - as in real OAuth/SSO."""
+    btn = await page.query_selector("#continue")
+    if not btn:
+        return
+    try:
+        async with page.expect_navigation(timeout=4_000):
+            await btn.click()
+    except Exception:
+        pass
+
+
 # Lab pages that need a gate solved before the login form appears.
-SOLVERS = {"captcha_ws_leak.html": drive_captcha, "captcha_ws_benign.html": drive_captcha}
+SOLVERS = {"captcha_ws_leak.html": drive_captcha, "captcha_ws_benign.html": drive_captcha,
+           "sso_benign.html": drive_sso}
 
 ATTACKER_LOG = ROOT / "logs" / "attacker.log"
 PASSWORD, OTP, LINK_CODE = "Lab-Pass-4821", "123456", "LINK-7788"

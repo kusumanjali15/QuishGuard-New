@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acme Reader - Continue</title></head>   <!-- a relying app, NOT impersonating the bank -->
+<body>
+  <h1>Acme Reader</h1>
+  <p style="color:#a00">LAB HARMLESS PAGE - legitimate federated login. The relying app has NO password
+     field: clicking hands off to the Formosa identity provider on its OWN origin (:8000), where the
+     password is typed, then returns here. This is the realistic OAuth/SSO redirect. Fake data only.</p>
+  <button type="button" id="continue">Continue with Formosa</button>
+  <p id="status"></p>
+  <script>
+    // Real SSO: redirect the WHOLE page to the IdP origin; never collect the password here.
+    document.getElementById("continue").addEventListener("click", () => {
+      const ret = encodeURIComponent(location.href);
+      location.href = "http://127.0.0.1:8000/sso?return=" + ret;
+    });
+    if (new URLSearchParams(location.search).get("signed_in")) {
+      document.getElementById("status").textContent = "Signed in via Formosa.";
+    }
+  </script>
+</body></html>

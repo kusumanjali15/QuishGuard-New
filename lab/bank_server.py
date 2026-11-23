@@ -8,15 +8,19 @@ HOST = "127.0.0.1"  # loopback: only this computer can reach the server
 PORT = 8000
 VERBOSE = False  # set True for the Stage 1 debug traces
 PAGE = Path(__file__).with_name("bank_login.html")
+SSO_PAGE = Path(__file__).with_name("bank_sso.html")
 
 
 class BankHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
-        """Browser asks for a page: send the login page for "/"."""
-        if self.path != "/":
+        """Browser asks for a page: send the login page for "/" or the SSO login for "/sso"."""
+        path = self.path.split("?", 1)[0]
+        if path == "/":
+            self._reply(200, PAGE.read_bytes())
+        elif path == "/sso":                      # IdP login served on the bank's OWN origin
+            self._reply(200, SSO_PAGE.read_bytes())
+        else:
             self.send_error(404, "Not found")
-            return
-        self._reply(200, PAGE.read_bytes())
 
     def do_POST(self) -> None:
         """Form submitted: read the body and print what the server received."""
