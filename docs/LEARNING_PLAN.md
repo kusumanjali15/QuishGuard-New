@@ -5,9 +5,9 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
 
 ## Current build order (agreed 2026-11-10)
 
-1. Finish Stage 14 precision labelling (manual labels -> precision table).  [in progress]
-2. Stage 13 - static URL baseline on Mendeley / `pirocheto/phishing-url`.  [DONE - 12b uses its score]
-3. Upgrade the Stage 11 lab pages needed for a FAIR 12b comparison on the open cases:
+1. Finish Stage 14 precision labelling (manual labels -> precision table).  [DONE - STAGE14_NOTES.md]
+2. Stage 13 - static URL baseline on Mendeley / `pirocheto/phishing-url`.  [DONE on real domains; 12b/12c use score_send, NOT this model - see pending swap under Stage 12b]
+3. Upgrade the Stage 11 lab pages needed for a FAIR 12b comparison on the open cases:  [DONE]
    - configurable delay (5 / 10 / 20 / 30 s), past WHALE's ~4.2-5.6 s window (open case 5)
    - a CAPTCHA automation can't pass: a distorted-code IMAGE the user must type (open case 3)
    - the AiTM relay forwarding to our OWN Formosa Demo Bank server (open case 6)
@@ -96,14 +96,15 @@ RQ mapping (corrected): **RQ2 prevalence = phishing-snapshots (Stage 14).** Dyna
     - "Shared photos" lure asking for an app linking code (non-credential scam)
     - Hook evasion (borrowing an untouched `fetch` from an iframe)
   - To add (pending - map each to an OPEN CASE 1-6 in PROJECT_CONTEXT):
-    - Harmless-at-load page with a CONFIGURABLE delay (2.5 / 5 / 10 / 20 / 30 s) before any malicious
+    - (DONE, Stage 11 upgrade) Harmless-at-load page with a CONFIGURABLE delay (?delay=; run at 3/5/10 s) before any malicious
       behaviour. Record what the static stand-in scores AT LOAD (if it ALLOWs -> open case 1), and
       which delays fall beyond WHALE's reported analysis time (~4.2 / ~5.6 s -> open case 5).
       Measure, don't assume a fixed window.
-    - Decoy-/automation-aware page: behaves well if it detects the sandbox or decoy creds (open case 2)
-    - Revise the CAPTCHA page: replace the one-click button with a distorted-code IMAGE the user must
+    - (PENDING) Decoy-/automation-aware page: behaves well if it detects the sandbox or decoy creds (open case 2)
+    - (DONE, Stage 12b step 6) Revise the CAPTCHA page: replace the one-click button with a distorted-code IMAGE the user must
       type - a "lab approximation of a human gate" (open case 3)
-    - Benign counterparts for the FP set: SSO/OAuth cross-domain redirect; a legit OTP step; a legit payment page
+    - (PARTIAL) Benign counterparts: legit OTP step = otp_late_benign, payment-ish = promo_benign,
+      accept-any sign-up = signup_benign; SSO/OAuth cross-domain redirect still PENDING
   - Done when: each has a result in the table and you can explain which layer caught it, or why it got through.
 
 - [x] **Stage 12 - WHALE static-stage stand-in**
@@ -122,6 +123,27 @@ RQ mapping (corrected): **RQ2 prevalence = phishing-snapshots (Stage 14).** Dyna
     our live guard differ, on the open cases 1-6 (PROJECT_CONTEXT).
   - DONE: configs a/b/c + live over 9 attacks + 9 harmless at 3/5/10 s (interim static = score_send;
     Stage 13 model swaps in later). Results + honest takeaways in docs/STAGE12B_NOTES.md.
+  - [ ] PENDING (before 12b/12c results go into the paper): rerun 12b/12c with the **Stage 13 model
+    as the static stage**, in place of the interim `score_send`. BLOCKED on a prerequisite documented
+    in STAGE12B_PLAN.md: the Stage 13 model cannot score 127.0.0.1 lab pages (its 7 external features -
+    whois/domain-age/traffic/DNS/Google-index/PageRank - don't exist for localhost, all lab pages share
+    one host so URL features degenerate, and it has no single-URL predict path). So this swap needs
+    EITHER real-domain pages for the static stage OR a lab-appropriate learned static stage - not the
+    current Mendeley-trained URL model on 127.0.0.1. Resolve which, then rerun and update STAGE12B_NOTES.md.
+
+- [ ] **Stage 12c - Password-reuse baseline** (known-password prior art; promised in the paper)
+  - Learn: SpoofGuard / AntiPhish / Google Password Alert / Microsoft Enhanced Phishing Protection
+    protect PREVIOUSLY KNOWN passwords - they warn when a saved/known password is typed into a
+    non-matching site. They do NOT cover OTPs, card numbers or linking codes, nor brand-new passwords.
+  - Build: a baseline column that flags a send only when the typed value matches a pre-registered
+    KNOWN password AND the page is off that password's legitimate origin; run it over the open cases
+    and harmless twins next to QuishGuard.
+  - Done when: the table shows where the password-reuse baseline MISSES what QuishGuard catches
+    (non-password secrets: OTP, linking-code lure; AiTM) - the comparison the paper's Abstract and
+    Section II-D set up.
+  - Status: PENDING. Currently the paper only positions these tools in related work; no quantitative
+    baseline is implemented yet. Decide whether the paper needs the implemented comparison or the
+    qualitative positioning is enough.
 
 ## Part E - Real data and ML
 
@@ -134,13 +156,15 @@ RQ mapping (corrected): **RQ2 prevalence = phishing-snapshots (Stage 14).** Dyna
   - (Parked/optional, later: the URL BERT model `CrabInHoney/urlbert-tiny-v4-phishing-classifier`,
     already prototyped in `src/quishguard/urlmodel.py` - an optional extra signal, not on the main path.)
 
-- [ ] **Stage 14 - Load-time characteristics of real phishing (phishing-snapshots)**
+- [x] **Stage 14 - Load-time characteristics of real phishing (phishing-snapshots)**
   - Learn: HAR files, pandas, counting and plotting - AND the passive-capture caveat:
     `nyuuzyou/phishing-snapshots` has NO interaction, so it shows load-time structure, not what a
     page sends after a user types. Do NOT report credential-send channel shares from it.
   - Build: from the snapshots, measure load-time characteristics (forms present at load, sensitive
     fields, where form actions point, third-party resources), with the caveat stated.
   - Done when: you have load-time numbers you could put in the paper, clearly labelled passive.
+  - DONE: prevalence over 136,414 captures (DET vs HEUR), 4 rare + 2 common detectors precision-
+    validated (per-row + per-unique), form-action finding. Results in docs/STAGE14_NOTES.md.
 
 - [ ] **Stage 14b - DynaPD live-behaviour lab (RQ3/RQ4 + Stage 15 training data)**
   - Build order: AFTER Stage 16 (needs an isolated machine - see Current build order).
@@ -161,7 +185,7 @@ RQ mapping (corrected): **RQ2 prevalence = phishing-snapshots (Stage 14).** Dyna
     with the hand-written rules at a fixed FPR, on a kit-family-disjoint split.
   - Done when: you can report the model vs rules at a fixed FPR, with no origin features used.
 
-- [ ] **Stage 15b - AiTM relay (open case 6, experiment E4)**
+- [x] **Stage 15b - AiTM relay (open case 6, experiment E4)**  [DONE - folded into Stage 12b]
   - Learn: adversary-in-the-middle - a relay that forwards submitted credentials to the REAL login and
     mirrors the response, so a decoy probe gets a genuine "wrong password" and may look benign to a
     decoy-based check.
@@ -169,6 +193,9 @@ RQ mapping (corrected): **RQ2 prevalence = phishing-snapshots (Stage 14).** Dyna
     or accounts). Test whether the WHALE-inspired decoy stage is fooled while our live guard still
     stops the real send.
   - Done when: the table shows the AiTM relay's effect on the decoy-based baseline vs our live guard.
+  - DONE in Stage 12b: realistic relay (same-origin page, server-side forward, genuine 401). The
+    decoy probe is fooled on the no-brand AiTM (401 -> benign); the live guard still blocks the
+    brand AiTM via impersonation. See docs/STAGE12B_NOTES.md (hypothesis 6).
 
 ## Part F - Android
 
