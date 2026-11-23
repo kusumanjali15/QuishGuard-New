@@ -179,6 +179,13 @@ The Stage 13 model therefore belongs on REAL URLs/pages (its Mendeley test split
 future DynaPD / real-capture evaluation), not the localhost lab. A learned static stage for the lab
 would need real-domain pages, not 127.0.0.1.
 
+DECISION (final, not a pending swap): the lab comparison KEEPS the rule-based `score_send` static
+stage. Beyond the three reasons above, a model trained on real phishing pages would not transfer to
+our small set of author-written lab pages (a different distribution with no real domains), so lab
+numbers from it would measure transfer failure, not static-stage quality. The Stage 13 model's
+accuracy is reported SEPARATELY on its own real-data test split (STAGE13_NOTES.md); it is not rerun
+as the 12b/12c static stage. This supersedes any earlier "rerun 12b with the Stage 13 model" item.
+
 ---
 
 ## Deviations from pre-registration

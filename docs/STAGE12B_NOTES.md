@@ -11,12 +11,16 @@ fictional brands, fake credentials.
   ABLATION of the live guard (real credentials, judged by `score_send >= 60`, stops after the
   window); **(c)** static + generic decoy probe + bounded window. **Live guard** = always-on,
   unbounded (QuishGuard).
-- Static stage is INTERIM (`score_send` weights applied at load). NOTE: the Stage 13 model is NOT a
-  usable drop-in here - it is an 87-feature URL classifier (incl. whois / domain-age / web-traffic /
-  PageRank) trained on real phishing DOMAINS; our lab pages are all on 127.0.0.1, so its external
-  features do not exist and its URL features cannot separate same-host lab pages. The Stage 13 model
-  is evaluated on real URLs (its own Mendeley test split, Stage 13), not the localhost lab. Window described in the paper as "near WHALE's reported average dynamic runtime
-  (~4.2 s)", NOT "WHALE's window".
+- Static stage is the rule-based `score_send` (weights applied at load) - a DECISION, not a
+  placeholder. The Stage 13 model is NOT swapped in here, for two reasons: (1) it is an 87-feature
+  URL classifier (incl. whois / domain-age / web-traffic / PageRank) trained on real phishing
+  DOMAINS, and our lab pages are all on 127.0.0.1 - its external features do not exist and its URL
+  features cannot separate same-host pages; (2) even a model trained on real pages would not
+  transfer to our small set of author-written lab pages (different distribution, no real domains),
+  so its lab numbers would measure transfer failure, not static-stage quality. The Stage 13 model's
+  performance is therefore reported SEPARATELY, on its own real-data test split (Stage 13 /
+  STAGE13_NOTES.md), and the lab comparison keeps `score_send`. Window described in the paper as
+  "near WHALE's reported average dynamic runtime (~4.2 s)", NOT "WHALE's window".
 
 ## Result  (B = blocked attack, M = missed attack, . = harmless allowed, F = harmless FALSE-block)
 

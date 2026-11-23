@@ -6,7 +6,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
 ## Current build order (agreed 2026-11-10)
 
 1. Finish Stage 14 precision labelling (manual labels -> precision table).  [DONE - STAGE14_NOTES.md]
-2. Stage 13 - static URL baseline on Mendeley / `pirocheto/phishing-url`.  [DONE on real domains; 12b/12c use score_send, NOT this model - see pending swap under Stage 12b]
+2. Stage 13 - static URL baseline on Mendeley / `pirocheto/phishing-url`.  [DONE on real domains; reported separately. 12b/12c keep score_send by DECISION - see under Stage 12b]
 3. Upgrade the Stage 11 lab pages needed for a FAIR 12b comparison on the open cases:  [DONE]
    - configurable delay (5 / 10 / 20 / 30 s), past WHALE's ~4.2-5.6 s window (open case 5)
    - a CAPTCHA automation can't pass: a distorted-code IMAGE the user must type (open case 3)
@@ -123,13 +123,13 @@ RQ mapping (corrected): **RQ2 prevalence = phishing-snapshots (Stage 14).** Dyna
     our live guard differ, on the open cases 1-6 (PROJECT_CONTEXT).
   - DONE: configs a/b/c + live over 9 attacks + 9 harmless at 3/5/10 s (interim static = score_send;
     Stage 13 model swaps in later). Results + honest takeaways in docs/STAGE12B_NOTES.md.
-  - [ ] PENDING (before 12b/12c results go into the paper): rerun 12b/12c with the **Stage 13 model
-    as the static stage**, in place of the interim `score_send`. BLOCKED on a prerequisite documented
-    in STAGE12B_PLAN.md: the Stage 13 model cannot score 127.0.0.1 lab pages (its 7 external features -
-    whois/domain-age/traffic/DNS/Google-index/PageRank - don't exist for localhost, all lab pages share
-    one host so URL features degenerate, and it has no single-URL predict path). So this swap needs
-    EITHER real-domain pages for the static stage OR a lab-appropriate learned static stage - not the
-    current Mendeley-trained URL model on 127.0.0.1. Resolve which, then rerun and update STAGE12B_NOTES.md.
+  - [x] DECISION (final): the lab comparison KEEPS the rule-based `score_send` static stage; the
+    Stage 13 model is NOT swapped in. It cannot score 127.0.0.1 pages (external whois/domain-age/
+    traffic/DNS/Google-index/PageRank features don't exist; single-host URL features degenerate; no
+    single-URL predict path), AND a model trained on real pages would not transfer to our small set of
+    author-written lab pages anyway - lab numbers from it would measure transfer failure, not static-
+    stage quality. The Stage 13 model is reported SEPARATELY on its own real-data split (STAGE13_NOTES.md).
+    Reasons recorded in STAGE12B_PLAN.md and STAGE12B_NOTES.md. (Supersedes the earlier "rerun with Stage 13" item.)
 
 - [ ] **Stage 12c - Password-reuse baseline** (known-password prior art; promised in the paper)
   - Learn: SpoofGuard / AntiPhish / Google Password Alert / Microsoft Enhanced Phishing Protection
