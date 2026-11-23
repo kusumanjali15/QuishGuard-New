@@ -33,6 +33,9 @@ from quishguard.whale_baseline import decoy_decision, static_decision, static_sc
 
 BASE = "http://127.0.0.1:8003/"
 DECOY = {"user": "decoy_user_00", "pass": "Decoy-Pass-0000", "code": "000000"}
+KNOWN_PW = rc.PASSWORD          # Lab-Pass-4821 - the bank credential (Stage 12c)
+OTHER_PW = "Other-Pass-9999"    # a distinct password for non-reuse benign services
+OFFICIAL = "http://127.0.0.1:8000"
 ERR_RE = re.compile(r"incorrect|invalid|wrong|failed|denied|not recognized|try again", re.I)
 OK_RE = re.compile(r"success|welcome|logged ?in|verified|dashboard|approved|created", re.I)
 SENS_JS = "() => !!document.querySelector('input[type=\"password\"], input[autocomplete=\"one-time-code\"]')"
@@ -63,6 +66,26 @@ PROBE_JS = r"""(d) => {
 }"""
 
 
+REUSE_FILL_JS = r"""(d) => {
+  const vis = el => el.offsetParent !== null || el.getClientRects().length > 0;
+  const ins = [...document.querySelectorAll('input')].filter(vis);
+  let pw = false;
+  for (const el of ins) {
+    const hay = ((el.name||'')+' '+(el.placeholder||'')+' '+(el.id||'')+' '+(el.getAttribute('autocomplete')||'')).toLowerCase();
+    if (el.type === 'password') { el.value = d.pass; pw = true; }
+    else if (el.getAttribute('autocomplete') === 'one-time-code' || /otp|code|pin/.test(hay)) el.value = d.code;
+    else if (['text','email','tel',''].includes(el.type)) el.value = d.user;
+    else continue;
+    el.dispatchEvent(new Event('input', {bubbles:true}));
+  }
+  const btns = [...document.querySelectorAll('button, input[type=submit]')].filter(vis);
+  const re = /sign ?in|log ?in|continue|submit|verify|next|view|apply|create/i;
+  const b = btns.find(x => re.test((x.textContent||x.value||''))) || btns[0];
+  if (b) b.click();
+  return pw;
+}"""
+
+
 def url_of(pf):
     return pf if pf.startswith("http") else BASE + pf
 
@@ -72,6 +95,7 @@ def build_cases():
     benign = [(pf.split("?")[0].replace(".html", ""), url_of(pf), "benign",
                rc.BENIGN_SETTLE.get(pf, 0), rc.BENIGN_CLICK.get(pf)) for pf in rc.BENIGN]
     benign.append(("signup_benign", BASE + "signup_benign.html", "benign", 0, None))
+    benign.append(("reuse_benign", BASE + "reuse_benign.html", "benign", 0, None))
     return attacks, benign
 
 
@@ -179,6 +203,47 @@ async def guard_run(url, settle_ms, solve, window_s):
     return ("block" if (blocked and not leaked) else "allow"), vt
 
 
+def reuses_flag(label, kind):
+    # the user reuses the bank password on login pages (all attacks) and on the one
+    # dedicated reuse page; other benign services use a distinct password (good hygiene).
+    return kind == "attack" or label == "reuse_benign"
+
+
+async def reuse_run(browser, device, url, solve, reuses):
+    """Stage 12c password-reuse baseline: alert if the KNOWN bank password is typed into a
+    field, or sent, on any NON-official origin. Window-independent (acts at type/send time)."""
+    ctx = await browser.new_context(**device)
+    page = await ctx.new_page()
+    po = origin_of(url)
+    sent = {"v": False}
+
+    def on_req(req):
+        if origin_of(req.url) != OFFICIAL and KNOWN_PW in (req.url + " " + (req.post_data or "")):
+            sent["v"] = True
+
+    page.on("request", on_req)
+    pw_val = KNOWN_PW if reuses else OTHER_PW
+    typed = False
+    t0 = time.monotonic()
+    try:
+        await page.goto(url, wait_until="domcontentloaded")
+        if solve:
+            with contextlib.suppress(Exception):
+                await solve(page)
+        while (time.monotonic() - t0) < 3.0:        # reuse detection acts at type/send time
+            with contextlib.suppress(Exception):
+                if await page.evaluate(REUSE_FILL_JS, {"user": "demo_user_01", "pass": pw_val, "code": rc.OTP}):
+                    typed = True
+            if (reuses and typed and po != OFFICIAL) or sent["v"]:
+                break
+            await page.wait_for_timeout(200)
+        await page.wait_for_timeout(200)
+    finally:
+        await ctx.close()
+    alert = (reuses and typed and po != OFFICIAL) or sent["v"]
+    return ("block" if alert else "allow"), round(time.monotonic() - t0, 1)
+
+
 async def run_cell(browser, device, case, config, window_s):
     _, url, _, settle, _ = case
     solve = rc.SOLVERS.get(url.rsplit("/", 1)[-1])
@@ -231,10 +296,27 @@ async def main() -> int:
             live[case[0]] = cell_str(codes, ts)
             print(f"  {case[0]:28} {live[case[0]]}")
 
+        print("\nPassword-reuse baseline (known bank password on a non-official origin) - once per case:")
+        reuse = {}
+        reuse_fp = []
+        for case in cases:
+            codes, ts = [], []
+            for _ in range(reps):
+                v, vt = await reuse_run(browser, device, case[1],
+                                        rc.SOLVERS.get(case[1].rsplit("/", 1)[-1]),
+                                        reuses_flag(case[0], case[2]))
+                codes.append(code(v, case[2]))
+                ts.append(vt)
+            reuse[case[0]] = cell_str(codes, ts)
+            print(f"  {case[0]:28} {reuse[case[0]]}")
+            if case[2] == "benign" and "F" in "".join(codes):
+                reuse_fp.append(case[0])
+        print(f"  reuse false-blocks: {reuse_fp or 'none'}")
+
         for W in windows:
             w1 = max(len(c[0]) for c in cases)
             print(f"\n==== window {W/1000:g}s  (reps={reps}; codes B/M/F/.) ====")
-            print(f"{'CASE':{w1}}  " + "  ".join(f"config {c:<10}" for c in configs) + "  live")
+            print(f"{'CASE':{w1}}  " + "  ".join(f"config {c:<10}" for c in configs) + "  live" + " " * 14 + "reuse")
             fp = {c: [] for c in configs}
             for case in cases:
                 cells = []
@@ -247,7 +329,7 @@ async def main() -> int:
                     cells.append(cell_str(codes, ts))
                     if case[2] == "benign" and any(x == "F" for x in codes):
                         fp[cfg].append(case[0])
-                print(f"{case[0]:{w1}}  " + "  ".join(f"{c:<17}" for c in cells) + f"  {live[case[0]]}")
+                print(f"{case[0]:{w1}}  " + "  ".join(f"{c:<17}" for c in cells) + f"  {live[case[0]]:<17}  {reuse[case[0]]}")
             print("harmless FALSE-blocked (per config): "
                   + "; ".join(f"{c}: {fp[c] or 'none'}" for c in configs))
 

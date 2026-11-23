@@ -11,8 +11,11 @@ fictional brands, fake credentials.
   ABLATION of the live guard (real credentials, judged by `score_send >= 60`, stops after the
   window); **(c)** static + generic decoy probe + bounded window. **Live guard** = always-on,
   unbounded (QuishGuard).
-- Static stage is INTERIM (`score_send` weights applied at load), to be replaced by the Stage 13
-  model. Window described in the paper as "near WHALE's reported average dynamic runtime
+- Static stage is INTERIM (`score_send` weights applied at load). NOTE: the Stage 13 model is NOT a
+  usable drop-in here - it is an 87-feature URL classifier (incl. whois / domain-age / web-traffic /
+  PageRank) trained on real phishing DOMAINS; our lab pages are all on 127.0.0.1, so its external
+  features do not exist and its URL features cannot separate same-host lab pages. The Stage 13 model
+  is evaluated on real URLs (its own Mendeley test split, Stage 13), not the localhost lab. Window described in the paper as "near WHALE's reported average dynamic runtime
   (~4.2 s)", NOT "WHALE's window".
 
 ## Result  (B = blocked attack, M = missed attack, . = harmless allowed, F = harmless FALSE-block)
@@ -71,6 +74,26 @@ was exercised ONLY on the no-brand AiTM**, which reaches the decoy stage and is 
 6. **False positive.** Config (c) false-blocks a legitimate ACCEPT-ANY sign-up page (`signup_benign`)
    via the "accepts" branch, at every window - the honest cost of the stronger (same-origin-aware)
    decoy rule. Configs (a)/(b) and the live guard have ZERO false blocks on all harmless twins.
+
+## Stage 12c - password-reuse baseline (prior art: Password Alert / Enhanced Phishing Protection)
+
+A fourth column (pre-registered in `STAGE12B_PLAN.md`): ALERT when the known bank password
+(`Lab-Pass-4821`) is typed or sent on a non-official origin. 5 unanimous reps.
+- CATCHES the password-carrying attacks: Early send, Pixel, CAPTCHA, Hook, AiTM (brand),
+  **AiTM (no brand)**.
+- MISSES every non-password secret: the delayed OTP form and BOTH linking-code lures - a
+  password-reuse detector is blind to OTPs, linking codes and card numbers by construction.
+- One FALSE POSITIVE: `reuse_benign` (a legitimate third-party login where the user reuses the
+  bank password) - the classic weakness of reuse detection: it cannot tell legitimate reuse
+  from phishing.
+- vs QuishGuard: the reuse baseline BEATS QuishGuard on exactly ONE case, the **no-brand AiTM**
+  (the reused password leaves to a non-official origin, which QuishGuard's score of 20 misses).
+  QuishGuard beats it on the delayed OTP and the (brand) linking-code lure, and has zero false
+  positives. BOTH miss the no-brand LURE (it carries a linking code, not the reused password).
+
+Takeaway: send-time protection of a single KNOWN password is narrow (no OTP / linking-code /
+card cover) and noisy (false-positives on legitimate reuse); QuishGuard protects ANY typed
+secret and scores the page, not just the password value.
 
 ## Where the baseline is BETTER (not just worse)
 - The static stage blocks the 4 impersonation logins BEFORE the user types (time 0), and the decoy

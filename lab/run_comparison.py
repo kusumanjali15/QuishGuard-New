@@ -75,6 +75,12 @@ BENIGN_CLICK = {}  # captcha twin now driven by the SOLVERS gate solver
 class ExclusiveHTTPServer(HTTPServer):
     allow_reuse_address = False
 
+    def handle_error(self, request, client_address):
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ConnectionAbortedError, BrokenPipeError, ConnectionResetError)):
+            return  # the lab browser closed the context mid-request - not an error
+        super().handle_error(request, client_address)
+
 
 def start_servers() -> None:
     ATTACKER_LOG.parent.mkdir(parents=True, exist_ok=True)

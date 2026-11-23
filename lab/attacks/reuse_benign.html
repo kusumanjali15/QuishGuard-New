@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily News - Sign in</title></head>   <!-- a legitimate, non-bank third party -->
+<body>
+  <h1>Daily News</h1>
+  <p style="color:#a00">LAB HARMLESS PAGE - a legit third-party login where the user REUSES the bank
+     password. The password-reuse baseline should ALERT here (false positive). Fake data only.</p>
+  <input name="username" placeholder="Email">
+  <input name="password" type="password" placeholder="Password">
+  <button type="button" id="signin">Sign in</button>
+  <script>
+    document.getElementById("signin").addEventListener("click", () => {
+      const p = document.querySelector('input[name="password"]').value;
+      fetch("http://127.0.0.1:8003/login", {              // same-origin, legitimate service
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: "password=" + encodeURIComponent(p),
+      });
+    });
+  </script>
+</body></html>

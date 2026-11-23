@@ -122,6 +122,32 @@ staged one. This matches WHALE's own stated "imitate benign validation and retry
 
 ---
 
+## Stage 12c pre-registration: password-reuse baseline (RQ3 / E3)
+
+A fourth comparison column (prior art: SpoofGuard / AntiPhish / Google Password Alert /
+Microsoft Enhanced Phishing Protection), FIXED before the run.
+- "Known" password = the lab bank credential `Lab-Pass-4821` (previously used on the official
+  bank origin http://127.0.0.1:8000).
+- ALERT (block) when that known value is TYPED into a field, OR appears in a send, on ANY
+  non-official origin (anything other than :8000).
+- It does NOT cover OTPs, linking codes, card numbers, or brand-new passwords - only the one
+  known password.
+- Victim password choice (fixed): the user reuses the bank password on pages that ask for a
+  login (all attack pages model this), and on ONE dedicated harmless page where legitimate
+  reuse is modelled (`reuse_benign`); on the other harmless twins the user uses a DIFFERENT
+  password (good hygiene, no reuse).
+- False positive = an alert on a harmless page: `reuse_benign` (a legitimate third-party login
+  where the user reuses the bank password) - report it.
+- Expected (to confirm by the run, not asserted): catches the password-carrying attacks
+  (Early, Pixel, CAPTCHA, Hook, AiTM brand + no-brand); misses the non-password ones
+  (Delayed = OTP, both linking-code lures); one false positive (`reuse_benign`). It BEATS
+  QuishGuard on the NO-BRAND AiTM (the reused bank password leaves to a non-official origin,
+  which QuishGuard's score of 20 misses). It does NOT beat QuishGuard on the no-brand LURE:
+  that carries a linking code, not the password, so a password-reuse detector is blind to it
+  (both miss).
+
+---
+
 ## Deviations from pre-registration
 
 1. **otp_late_benign false-positive fix** (2026-11-23, AFTER the first full run).
