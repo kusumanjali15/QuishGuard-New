@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device check</title></head>
+<body>
+  <h1>Verifying your device...</h1>
+  <p style="color:#a00">LAB HARMLESS PAGE - same device-check flow, but a legit same-origin login (counterpart).</p>
+  <div id="slot"></div>
+  <script>
+    setTimeout(() => {
+      if (navigator.webdriver) return;                   // same gate, so the twin matches the attack's shape
+      document.title = "Bean Corner Cafe - Member sign-in";
+      document.getElementById("slot").innerHTML =
+        '<input name="username" placeholder="Member name">' +
+        '<input name="password" type="password" placeholder="Password">' +
+        '<button type="button" id="signin">Sign in</button>';
+      document.getElementById("signin").addEventListener("click", () => {
+        const p = document.querySelector('input[name="password"]').value;
+        fetch("http://127.0.0.1:8003/login", {             // same-origin, legitimate
+          method: "POST",
+          headers: {"Content-Type": "application/x-www-form-urlencoded"},
+          body: "password=" + encodeURIComponent(p),
+        });
+      });
+    }, 1200);
+  </script>
+</body></html>

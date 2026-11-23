@@ -96,6 +96,9 @@ def build_cases():
                rc.BENIGN_SETTLE.get(pf, 0), rc.BENIGN_CLICK.get(pf)) for pf in rc.BENIGN]
     benign.append(("signup_benign", BASE + "signup_benign.html", "benign", 0, None))
     benign.append(("reuse_benign", BASE + "reuse_benign.html", "benign", 0, None))
+    attacks.append(("Decoy-aware (OC2)", BASE + "decoy_aware_leak.html", "attack", 1500, None))
+    benign.append(("decoy_aware_benign", BASE + "decoy_aware_benign.html", "benign", 1500, None))
+    benign.append(("sso_benign", BASE + "sso_benign.html", "benign", 0, None))
     return attacks, benign
 
 
@@ -188,7 +191,7 @@ async def guard_run(url, settle_ms, solve, window_s):
     before = len(rc.log_lines())
     with contextlib.redirect_stdout(io.StringIO()):
         await visit_and_interact(url, guard=guard, sensor=sensor, settle_ms=settle_ms,
-                                 solve=solve, window_s=window_s)
+                                 solve=solve, window_s=window_s, human=True)
     leaked = rc.count_leaks(rc.log_lines()[before:]) > 0
     blocked = (any("BLOCK" in ln for g in (sensor, guard) for ln in g.log)
                or any("dropped" in ln for ln in sensor.log))
@@ -206,13 +209,14 @@ async def guard_run(url, settle_ms, solve, window_s):
 def reuses_flag(label, kind):
     # the user reuses the bank password on login pages (all attacks) and on the one
     # dedicated reuse page; other benign services use a distinct password (good hygiene).
-    return kind == "attack" or label == "reuse_benign"
+    return kind == "attack" or label in {"reuse_benign", "sso_benign"}
 
 
 async def reuse_run(browser, device, url, solve, reuses):
     """Stage 12c password-reuse baseline: alert if the KNOWN bank password is typed into a
     field, or sent, on any NON-official origin. Window-independent (acts at type/send time)."""
     ctx = await browser.new_context(**device)
+    await ctx.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => false});")
     page = await ctx.new_page()
     po = origin_of(url)
     sent = {"v": False}
@@ -222,7 +226,7 @@ async def reuse_run(browser, device, url, solve, reuses):
             sent["v"] = True
 
     page.on("request", on_req)
-    pw_val = KNOWN_PW if reuses else OTHER_PW
+    pw_val = KNOWN_PW if reuses else OTHER_PW  # po is now read at type-time (see loop)
     typed = False
     t0 = time.monotonic()
     try:
@@ -234,13 +238,16 @@ async def reuse_run(browser, device, url, solve, reuses):
             with contextlib.suppress(Exception):
                 if await page.evaluate(REUSE_FILL_JS, {"user": "demo_user_01", "pass": pw_val, "code": rc.OTP}):
                     typed = True
-            if (reuses and typed and po != OFFICIAL) or sent["v"]:
+            # origin where the password is ACTUALLY typed now (after any SSO redirect to the IdP)
+            po_now = origin_of(page.url)
+            if (reuses and typed and po_now != OFFICIAL) or sent["v"]:
                 break
             await page.wait_for_timeout(200)
         await page.wait_for_timeout(200)
     finally:
+        typed_origin = origin_of(page.url)
         await ctx.close()
-    alert = (reuses and typed and po != OFFICIAL) or sent["v"]
+    alert = (reuses and typed and typed_origin != OFFICIAL) or sent["v"]
     return ("block" if alert else "allow"), round(time.monotonic() - t0, 1)
 
 
@@ -268,6 +275,7 @@ async def main() -> int:
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--windows", default="3000,5000,10000")
     ap.add_argument("--configs", default="a,b,c")
+    ap.add_argument("--only", default=None, help="run only cases whose label contains this substring")
     args = ap.parse_args()
     if args.smoke:
         args.reps, args.windows = 1, "5000"
@@ -280,6 +288,8 @@ async def main() -> int:
     await asyncio.sleep(0.5)
     attacks, benign = build_cases()
     cases = attacks if args.smoke else attacks + benign
+    if args.only:
+        cases = [c for c in cases if args.only.lower() in c[0].lower()]
 
     async with async_playwright() as p:
         browser = await p.chromium.launch()

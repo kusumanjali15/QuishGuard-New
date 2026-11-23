@@ -6,7 +6,7 @@ from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import async_playwright
 
 from quishguard.guard import Guard
-from quishguard.netlog import RequestRecord, record_from_playwright
+from quishguard.netlog import RequestRecord, origin_of, record_from_playwright
 from quishguard.rules import PageInfo
 from quishguard.sensor import install_sensor
 
@@ -82,6 +82,7 @@ async def visit_and_interact(
     pre_click: str | None = None,
     solve=None,
     window_s: float | None = None,
+    human: bool = False,
 ) -> str:
     """Open a page like a phone, optionally wait for late content, then fill any
     sensitive fields present and submit. Used by the Stage 11 attack harness,
@@ -94,6 +95,8 @@ async def visit_and_interact(
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=headless)
         context = await browser.new_context(**p.devices[PHONE])
+        if human:  # Stage 11 open-case-2: stand in for a real user (not an automated probe)
+            await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => false});")
         if sensor is not None:
             await install_sensor(context, sensor)
         page = await context.new_page()
@@ -116,6 +119,11 @@ async def visit_and_interact(
         if pre_click and await page.query_selector(pre_click):
             await page.click(pre_click)              # pass a gate (e.g. CAPTCHA)
             await page.wait_for_timeout(500)         # let the real form appear
+
+        # If a hand-off (e.g. SSO redirect) moved us to a NEW origin, re-read the page the
+        # guard judges against - the in-page sensor runs per page, so this is faithful.
+        if guard is not None and guard.page is not None and origin_of(page.url) != origin_of(guard.page.url):
+            guard.page = PageInfo(page.url, await page.title())
 
         for selector, value in VICTIM_VALUES.items():
             if await page.query_selector(selector):

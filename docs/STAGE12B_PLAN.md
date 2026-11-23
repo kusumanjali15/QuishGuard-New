@@ -148,6 +148,39 @@ Microsoft Enhanced Phishing Protection), FIXED before the run.
 
 ---
 
+## Stage 11 open case 2 - decoy-/sandbox-aware page (pre-registered choice)
+
+The attack page keys on `navigator.webdriver`: for an automated session (a decoy probe / sandbox)
+it reveals NOTHING (stays a benign "Verifying your device..." page); for a non-automated session
+it reveals a Formosa login and exfiltrates cross-site.
+CHOICE (option b, fixed before the run): the REAL-USER victim - config (b), the live guard and the
+password-reuse baseline - runs with `navigator.webdriver` spoofed FALSE (a stand-in for a human on
+a real device); the decoy probe (config c) keeps the Playwright default (true). We do NOT key the
+page only on webdriver while leaving our victim as a default Playwright client, because our victim
+is also automation and the page would then hide from the live guard too.
+Expected (to confirm, not asserted): config (c) decoy probe MISSES it (sees only the benign page);
+config (b), the live guard and the reuse baseline CATCH it (the page reveals the login and the real
+send is judged with the live title = Formosa, score 70). Static-only (a) MISSES it (nothing
+sensitive at load). The point: a page that detects pre-release dynamic analysis is caught by a
+defence that runs in the REAL session, not before it.
+
+## Static stage: decision (resolves the "use the Stage 13 model?" question)
+
+The 12b/12c static stage uses the interim `score_send`; the Stage 13 model is NOT swapped in for
+the LAB run. This is a DECISION, not a TODO, for three concrete reasons:
+1. The Stage 13 model is an 87-feature classifier with 7 EXTERNAL features (whois, domain
+   registration length, domain age, web traffic, DNS record, Google index, PageRank). None exist
+   for 127.0.0.1 lab pages.
+2. All lab pages share ONE host (127.0.0.1); its 56 URL-syntax features are identical across attack
+   and benign pages, so a URL model cannot separate them by construction.
+3. The model has no single-URL predict path; it trains/tests on the Mendeley benchmark's own split,
+   where its evaluation lives (STAGE13_NOTES.md), on real domains.
+The Stage 13 model therefore belongs on REAL URLs/pages (its Mendeley test split, done; and the
+future DynaPD / real-capture evaluation), not the localhost lab. A learned static stage for the lab
+would need real-domain pages, not 127.0.0.1.
+
+---
+
 ## Deviations from pre-registration
 
 1. **otp_late_benign false-positive fix** (2026-11-23, AFTER the first full run).
