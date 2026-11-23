@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bean Corner Cafe - Create account</title></head>
+<body>
+  <h1>Bean Corner Cafe</h1>
+  <p style="color:#a00">LAB HARMLESS PAGE - a legit sign-up that ACCEPTS any credentials (shows success).
+     Tests whether config (c)'s "accepts" branch false-positives. Fake data only.</p>
+  <input name="username" placeholder="Choose a username">
+  <input name="password" type="password" placeholder="Choose a password">
+  <button type="button" id="create">Create account</button>
+  <p id="result"></p>
+  <script>
+    document.getElementById("create").addEventListener("click", async () => {
+      const u = document.querySelector('input[name="username"]').value;
+      await fetch("http://127.0.0.1:8003/signup", {        // same-origin, legitimate
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: "username=" + encodeURIComponent(u),
+      });
+      // a real sign-up accepts any new credentials and advances to a welcome state
+      document.getElementById("result").textContent = "Account created - welcome!";
+    });
+  </script>
+</body></html>

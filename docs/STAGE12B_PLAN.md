@@ -8,7 +8,7 @@ A WHALE-INSPIRED baseline (NOT a reimplementation of WHALE's 54-feature model) a
 the live, always-on guard (QuishGuard), across open cases 1-6, on the lab attack pages
 and their harmless twins. The baseline runs in three cumulative configs:
 - (a) static only
-- (b) static + bounded window
+- (b) bounded-window ABLATION of the live guard (real credentials)
 - (c) static + decoy-credential probe + bounded window
 
 ## Observation window
@@ -35,13 +35,31 @@ Note: with this interim static stage the confident-benign band is narrow, so mos
 reach the dynamic stage. The Stage 13 model is expected to widen it.
 
 ## Dynamic stage
-### (b) static + bounded window
-Within the window, hold and judge the page's OWN real-credential sends exactly as the
-live guard does, but STOP at the end of the window; after the window, sends pass.
+### (b) bounded-window ablation of the live guard (real credentials)
+NOT WHALE-like - this is the LIVE GUARD with a time bound, to isolate the "bounded vs
+unbounded" variable. Within the window it holds and judges the page's OWN real-credential
+sends by the SAME rule as the live guard (score_send >= BLOCK_THRESHOLD = 60); it STOPS at
+the end of the window, after which sends pass. Real credentials reach the page.
 
 ### (c) static + decoy probe + bounded window
 Within the window, actively submit DECOY credentials into the page's fields and watch
 where they go; STOP at the end of the window. Real credentials never reach the page.
+
+### Generic decoy probe (config c) - one heuristic, no per-page code
+The same heuristic drives every page (documented BEFORE the first run):
+- Fields: every VISIBLE <input> of a fillable type is filled with a decoy by role -
+  type=password -> decoy password; autocomplete=one-time-code or name/placeholder/id
+  matching /otp|code|pin/ -> decoy code; text/email/tel/untyped -> decoy identifier.
+  Decoy values: decoy_user_00 / Decoy-Pass-0000 / 000000 (NEVER the real lab creds).
+- Submit: click the first VISIBLE <button> or input[type=submit] whose text matches
+  /sign ?in|log ?in|continue|submit|verify|next|view|apply/, else the first visible button.
+- Retry within the window: if no fillable input or submit target is present yet, retry every
+  200 ms until one appears or the window ends (so a delayed form that appears BEFORE the
+  window ends is still probed).
+Observation within the window: decoy_left_cross_site = a request to a non-page, non-official
+origin carries a decoy value; auth_error = the submit response status is 401/403/400 OR the
+post-submit page shows an error marker; accepts = no error AND a new password/one-time-code/
+card field appears or a success marker shows. Verdict by the ordered rule below.
 
 ### Decoy decision rule (FIXED)
 After the decoy submit, within the window, evaluate IN THIS ORDER (first match wins):
@@ -101,3 +119,21 @@ staged one. This matches WHALE's own stated "imitate benign validation and retry
 - The baseline is BETTER where the static stage blocks a brand-impersonating login at load
   (before typing; real creds never entered), and where config (c)'s behavioural decoy rule
   catches the no-brand lure that the live guard's score (50 < 60) misses.
+
+---
+
+## Deviations from pre-registration
+
+1. **otp_late_benign false-positive fix** (2026-11-23, AFTER the first full run).
+   - What changed: the config (c) "accepts -> a new credential field appeared" check in the runner.
+   - Why: the code compared the credential-field state against the page's LOAD state, so the
+     benign delayed-OTP twin's field simply *appearing* (it is injected ~8 s after load) counted
+     as a "new step". The LOCKED rule says a new field "that was NOT present before the SUBMIT" -
+     the comparison must be pre-SUBMIT, not pre-load. So this aligned the CODE with the
+     pre-registered rule; the rule itself did not change.
+   - When: after seeing the first full matrix (3/5/10 s), before committing.
+   - Before: `otp_late_benign` -> F (false block) under config (c) at the 10 s window ONLY
+     (unaffected at 3/5 s, where the 8 s form never appears within the window).
+   - After: `otp_late_benign` -> allowed (.) at all windows. The only remaining config (c)
+     false-block is `signup_benign` (the intended accept-any limitation). No ATTACK outcome
+     changed at any window.

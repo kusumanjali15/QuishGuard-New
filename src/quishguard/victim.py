@@ -1,5 +1,7 @@
 """Stage 4: open a page like a phone and sign in with fake credentials."""
 
+import time
+
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import async_playwright
 
@@ -79,6 +81,7 @@ async def visit_and_interact(
     settle_ms: int = 0,
     pre_click: str | None = None,
     solve=None,
+    window_s: float | None = None,
 ) -> str:
     """Open a page like a phone, optionally wait for late content, then fill any
     sensitive fields present and submit. Used by the Stage 11 attack harness,
@@ -100,6 +103,12 @@ async def visit_and_interact(
         await page.goto(url)
         if guard is not None:
             guard.page = PageInfo(page.url, await page.title())
+        loaded = time.monotonic()                # Stage 12b: mark page-load for timing
+        for g in (guard, sensor):
+            if g is not None:
+                g.loaded_at = loaded
+                if window_s is not None:             # config (b): bound the watch window
+                    g.deadline = loaded + window_s
         if settle_ms:
             await page.wait_for_timeout(settle_ms)  # let delayed forms appear
         if solve is not None:

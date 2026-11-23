@@ -6,6 +6,7 @@ from quishguard.forms import parse_form_body
 
 HOST = "127.0.0.1"  # loopback: only this computer can reach the server
 PORT = 8000
+VERBOSE = False  # set True for the Stage 1 debug traces
 PAGE = Path(__file__).with_name("bank_login.html")
 
 
@@ -24,13 +25,18 @@ class BankHandler(BaseHTTPRequestHandler):
         raw_body = self.rfile.read(length).decode("utf-8")
         
 
-        print(f"\n[bank] {self.command} {self.path}")
-        print(f"[bank] Origin header: {self.headers.get('Origin')}")
-        print(f"[bank] Content-Type:  {self.headers.get('Content-Type')}")
-        print(f"[bank] raw body:      {raw_body}")
+        if VERBOSE:
+            print(f"\n[bank] {self.command} {self.path}")
+        if VERBOSE:
+            print(f"[bank] Origin header: {self.headers.get('Origin')}")
+        if VERBOSE:
+            print(f"[bank] Content-Type:  {self.headers.get('Content-Type')}")
+        if VERBOSE:
+            print(f"[bank] raw body:      {raw_body}")
         fields = parse_form_body(raw_body)
-        for name, value in fields.items():
-            print(f"[bank] field {name} = {value}")
+        if VERBOSE:
+            for name, value in fields.items():
+                print(f"[bank] field {name} = {value}")
 
         # Validate credentials so WRONG (e.g. decoy) creds get a genuine auth error.
         if fields.get("username") == "demo_user_01" and fields.get("password") == "Lab-Pass-4821":

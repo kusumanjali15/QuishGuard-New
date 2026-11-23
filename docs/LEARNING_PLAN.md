@@ -11,7 +11,7 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
    - configurable delay (5 / 10 / 20 / 30 s), past WHALE's ~4.2-5.6 s window (open case 5)
    - a CAPTCHA automation can't pass: a distorted-code IMAGE the user must type (open case 3)
    - the AiTM relay forwarding to our OWN Formosa Demo Bank server (open case 6)
-4. Stage 12b - WHALE-inspired baseline, compared with the live guard on open cases 1-6.
+4. Stage 12b - WHALE-inspired baseline, compared with the live guard on open cases 1-6.  [DONE - see STAGE12B_NOTES.md]
 5. Stage 16 - a MINIMAL Android interception test, done BEFORE DynaPD (RQ1 is our strongest
    novelty; DynaPD needs an isolated machine still to be requested from the professor).
 6. Stage 14b - DynaPD live-behaviour lab (once the isolated machine is available).
@@ -114,12 +114,14 @@ RQ mapping (corrected): **RQ2 prevalence = phishing-snapshots (Stage 14).** Dyna
     labelled "WHALE static-stage stand-in".
   - Done when: the table shows which pages the static stand-in passes at load (candidates for open case 1).
 
-- [ ] **Stage 12b - WHALE-inspired baseline** (label it "WHALE-inspired", not a reproduction)
+- [x] **Stage 12b - WHALE-inspired baseline** (label it "WHALE-inspired", not a reproduction)
   - Learn: WHALE's pipeline - a static score, a DUAL threshold (allow / block / "unclear"),
     a decoy-credential probe on unclear pages, and a BOUNDED observation window.
   - Build: a baseline that chains those four pieces over a page, as a column next to our live guard.
   - Done when: the table shows where the WHALE-inspired baseline (static score from Stage 13) and
     our live guard differ, on the open cases 1-6 (PROJECT_CONTEXT).
+  - DONE: configs a/b/c + live over 9 attacks + 9 harmless at 3/5/10 s (interim static = score_send;
+    Stage 13 model swaps in later). Results + honest takeaways in docs/STAGE12B_NOTES.md.
 
 ## Part E - Real data and ML
 
