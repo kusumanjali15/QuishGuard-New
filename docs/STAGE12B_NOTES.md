@@ -154,3 +154,18 @@ One post-run fix (the `otp_late_benign` config (c) false-positive) aligned the r
 pre-registered rule (compare credential fields PRE-submit, not pre-load); it changed no attack
 outcome. Full what/why/when/before-after in `docs/STAGE12B_PLAN.md` -> "Deviations from
 pre-registration".
+
+## E5 - benign multi-step flows (results)
+Pre-registered in STAGE12B_PLAN.md. Rerun `python lab\run_stage12b.py --windows 5000`.
+Logic pre-check (pure Python, score_send): OTP flow (official :8000, same-origin) = allow 0; payment
+flow (trusted :8020, same-origin) = allow 0; control phishing exfil still blocks (100).
+
+| case | live | a | b | c | reuse | expected |
+|---|---|---|---|---|---|---|
+| otp_benign (OTP, official origin) | . | . | . | . | . | all allowed - confirmed |
+| pay_benign (card, trusted processor) | . | . | . | . | . | all allowed - confirmed |
+
+CONFIRMED (5 reps): zero false blocks on both E5 flows (live, a, b, c, reuse). No regression on existing
+rows; `harmless FALSE-blocked: a none; b none; c ['signup_benign']` (the pre-existing config-c FP only);
+reuse false-blocks still just `reuse_benign`. The sensor.js rewrite (card fields, image/child-frame
+wraps) introduced no new false positive.

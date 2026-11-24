@@ -9,6 +9,7 @@ PORT = 8000
 VERBOSE = False  # set True for the Stage 1 debug traces
 PAGE = Path(__file__).with_name("bank_login.html")
 SSO_PAGE = Path(__file__).with_name("bank_sso.html")
+OTP_PAGE = Path(__file__).with_name("bank_otp.html")
 
 
 class BankHandler(BaseHTTPRequestHandler):
@@ -19,6 +20,8 @@ class BankHandler(BaseHTTPRequestHandler):
             self._reply(200, PAGE.read_bytes())
         elif path == "/sso":                      # IdP login served on the bank's OWN origin
             self._reply(200, SSO_PAGE.read_bytes())
+        elif path == "/otp":                      # E5: benign multi-step OTP flow (official origin)
+            self._reply(200, OTP_PAGE.read_bytes())
         else:
             self.send_error(404, "Not found")
 

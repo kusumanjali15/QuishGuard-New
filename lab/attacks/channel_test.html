@@ -9,6 +9,8 @@
 <p style="color:#a00">LAB ONLY. Fake secrets only. Fires each send channel so we can see which
 defence layer observes (and later blocks) it.</p>
 
+<input id="pw" type="password" autocomplete="current-password"
+       style="position:absolute;left:-9999px" aria-hidden="true">
 <button id="all-same">Run all non-navigating - SAME origin</button>
 <button id="all-cross">Run all non-navigating - CROSS origin</button>
 <hr>
@@ -22,6 +24,10 @@ const SAME  = location.origin;              // http://10.0.2.2:8003
 const CROSS = "http://10.0.2.2:8002";       // a different origin (collector)
 const WSAME  = SAME.replace("http", "ws");
 const WCROSS = "ws://10.0.2.2:8004";
+// Arm the sensor like a real victim: type a credential into a sensitive field so the
+// canonical sensor (hold-by-default) engages before any channel fires.
+(function () { const pw = document.getElementById("pw"); pw.value = "Lab-Pass-4821";
+  pw.dispatchEvent(new Event("input", {bubbles:true})); })();
 const T = "[qg-test]";
 const base  = tag => tag === "same" ? SAME  : CROSS;
 const wbase = tag => tag === "same" ? WSAME : WCROSS;

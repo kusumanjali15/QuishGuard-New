@@ -12,7 +12,11 @@ OFFICIAL_ORIGINS: dict[str, set[str]] = {
     "Formosa Demo Bank": {"http://127.0.0.1:8000"},
     "ChatLink": {"http://127.0.0.1:8010"},
 }
-TRUSTED_ORIGINS: set[str] = set().union(*OFFICIAL_ORIGINS.values())
+# Trusted PARTNER origins: legitimate cross-origin destinations that are NOT protected brands
+# (e.g. an SSO identity provider, a payment processor). A policy/allow-list input, not a detection
+# result - a real deployment would populate it from the bank/processor, not hardcode it.
+TRUSTED_PARTNER_ORIGINS: set[str] = {"http://127.0.0.1:8020"}  # E5: trusted payment processor
+TRUSTED_ORIGINS: set[str] = set().union(*OFFICIAL_ORIGINS.values()) | TRUSTED_PARTNER_ORIGINS
 
 WEIGHTS = {"untrusted": 20, "impersonation": 50, "cross_site": 30, "scan_mismatch": 30}
 BLOCK_THRESHOLD = 60

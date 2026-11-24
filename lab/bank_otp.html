@@ -1,0 +1,30 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formosa Demo Bank - Sign in</title></head>
+<body>
+<h1>Formosa Demo Bank</h1>
+<p style="color:#a00">LAB benign multi-step OTP flow on the OFFICIAL bank origin (:8000). Fake data only.</p>
+<div id="login">
+  <input name="username" placeholder="Username">
+  <input name="password" type="password" placeholder="Password">
+  <button type="button" id="signin">Sign in</button>
+</div>
+<div id="otpstep" hidden>
+  <input name="otp" autocomplete="one-time-code" placeholder="One-time code">
+  <button type="button" id="verify">Verify</button>
+</div>
+<p id="result"></p>
+<script>
+  const $ = s => document.querySelector(s);
+  $("#signin").addEventListener("click", async () => {       // step 1: credentials, same-origin
+    await fetch("/login", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:"username="+$('input[name=username]').value+"&password="+$('input[name=password]').value}).catch(()=>{});
+    $("#login").hidden = true; $("#otpstep").hidden = false;  // step 2 appears
+  });
+  $("#verify").addEventListener("click", async () => {       // step 2: OTP, same-origin
+    await fetch("/verify", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:"otp="+$('input[name=otp]').value}).catch(()=>{});
+    $("#result").textContent = "Signed in.";
+  });
+</script>
+</body></html>

@@ -14,6 +14,7 @@ import aitm_relay
 import ws_collector
 import collector_server
 import phish_server
+import pay_server
 
 
 class ExclusiveHTTPServer(HTTPServer):
@@ -26,6 +27,7 @@ SERVERS = [
     ("Attacker collector", collector_server.CollectorHandler, 8002),
     ("Attack-page server", attack_server.AttackHandler, 8003),
     ("AiTM relay", aitm_relay.RelayHandler, 8005),
+    ("Trusted Pay (E5)", pay_server.PayHandler, 8020),
 ]
 
 for name, handler, port in SERVERS:

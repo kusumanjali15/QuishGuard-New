@@ -1,0 +1,20 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trusted Pay - Checkout</title></head>
+<body>
+<h1>Trusted Pay</h1>
+<p style="color:#a00">LAB benign payment flow on a TRUSTED payment-processor origin (:8020). Fake data only.</p>
+<input name="card" autocomplete="cc-number" placeholder="Card number">
+<input name="exp"  autocomplete="cc-exp"    placeholder="MM/YY">
+<input name="cvv"  autocomplete="cc-csc"    placeholder="CVV">
+<button type="button" id="pay">Pay</button>
+<p id="result"></p>
+<script>
+  document.getElementById("pay").addEventListener("click", async () => {   // same-origin to the processor
+    const v = s => document.querySelector(s).value;
+    await fetch("/charge", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:"card="+v('input[name=card]')+"&exp="+v('input[name=exp]')+"&cvv="+v('input[name=cvv]')}).catch(()=>{});
+    document.getElementById("result").textContent = "Payment submitted.";
+  });
+</script>
+</body></html>

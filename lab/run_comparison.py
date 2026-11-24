@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "lab"))
 
-import aitm_relay, attack_server, bank_server, collector_server, phish_server, ws_collector  # noqa: E402
+import aitm_relay, attack_server, bank_server, collector_server, pay_server, phish_server, ws_collector  # noqa: E402
 from playwright.async_api import async_playwright  # noqa: E402
 
 from quishguard.guard import Guard  # noqa: E402
@@ -59,9 +59,21 @@ async def drive_sso(page) -> None:
         pass
 
 
+async def drive_otp(page) -> None:
+    """E5 benign 2-step OTP flow on the official bank origin: credentials, then OTP - all same-origin."""
+    with contextlib.suppress(Exception):
+        await page.fill('input[name="username"]', "demo_user_01")
+        await page.fill('input[type="password"]', PASSWORD)
+        await page.click("#signin")
+        await page.wait_for_timeout(400)
+        await page.fill('input[autocomplete="one-time-code"]', OTP)
+        await page.click("#verify")
+        await page.wait_for_timeout(300)
+
+
 # Lab pages that need a gate solved before the login form appears.
 SOLVERS = {"captcha_ws_leak.html": drive_captcha, "captcha_ws_benign.html": drive_captcha,
-           "sso_benign.html": drive_sso}
+           "sso_benign.html": drive_sso, "otp": drive_otp}
 
 ATTACKER_LOG = ROOT / "logs" / "attacker.log"
 PASSWORD, OTP, LINK_CODE = "Lab-Pass-4821", "123456", "LINK-7788"
@@ -102,7 +114,7 @@ def start_servers() -> None:
     ATTACKER_LOG.write_text("", encoding="utf-8")  # fresh log for a clean count
     for handler, port in [(bank_server.BankHandler, 8000), (phish_server.PhishHandler, 8001),
                           (collector_server.CollectorHandler, 8002), (attack_server.AttackHandler, 8003),
-                          (aitm_relay.RelayHandler, 8005)]:
+                          (aitm_relay.RelayHandler, 8005), (pay_server.PayHandler, 8020)]:
         handler.log_message = lambda *a: None
         try:
             srv = ExclusiveHTTPServer(("127.0.0.1", port), handler)

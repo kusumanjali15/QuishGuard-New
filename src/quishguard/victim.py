@@ -1,5 +1,6 @@
 """Stage 4: open a page like a phone and sign in with fake credentials."""
 
+import contextlib
 import time
 
 from playwright.async_api import Error as PlaywrightError
@@ -70,6 +71,9 @@ VICTIM_VALUES = {
     'input[name="promo"]': "SAVE10NOW",        # Stage 12b: harmless - must NOT be held
     'input[name="postal"]': "100045",          # Stage 12b: harmless - must NOT be held
     'input[name="country_code"]': "886",       # Stage 12b: harmless
+    'input[autocomplete="cc-number"]': "4111111111111111",  # E5: fake test card number
+    'input[autocomplete="cc-exp"]': "12/29",                 # E5: expiry (not secret)
+    'input[autocomplete="cc-csc"]': "123",                   # E5: CVV
 }
 
 
@@ -126,14 +130,16 @@ async def visit_and_interact(
             guard.page = PageInfo(page.url, await page.title())
 
         for selector, value in VICTIM_VALUES.items():
-            if await page.query_selector(selector):
-                await page.fill(selector, value)
+            el = await page.query_selector(selector)
+            if el and await el.is_visible():          # skip hidden fields (e.g. a prior step's form)
+                with contextlib.suppress(PlaywrightError):
+                    await page.fill(selector, value, timeout=2_000)
 
         try:
             async with page.expect_navigation(timeout=4_000):
-                await page.click("button")
+                await page.click("button", timeout=3_000)   # bounded: don't hang on a hidden button
         except PlaywrightError:
-            pass  # no button, or send was blocked: nothing to navigate to
+            pass  # no visible button, or send was blocked: nothing to navigate to
 
         final_url = page.url
         await browser.close()

@@ -22,3 +22,6 @@ local.properties
 
 # OS
 .DS_Store
+
+# Generated: canonical sensor copied from src/quishguard/sensor.js at build
+app/src/main/assets/sensor.js

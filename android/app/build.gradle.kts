@@ -43,3 +43,10 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
 }
+
+// Keep the Android sensor identical to the Python lab's canonical sensor (single source of truth).
+val copySensorJs by tasks.registering(Copy::class) {
+    from(rootProject.projectDir.parentFile.resolve("src/quishguard/sensor.js"))
+    into(layout.projectDirectory.dir("src/main/assets"))
+}
+tasks.named("preBuild") { dependsOn(copySensorJs) }

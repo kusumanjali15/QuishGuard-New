@@ -99,6 +99,8 @@ def build_cases():
     attacks.append(("Decoy-aware (OC2)", BASE + "decoy_aware_leak.html", "attack", 1500, None))
     benign.append(("decoy_aware_benign", BASE + "decoy_aware_benign.html", "benign", 1500, None))
     benign.append(("sso_benign", BASE + "sso_benign.html", "benign", 0, None))
+    benign.append(("otp_benign", "http://127.0.0.1:8000/otp", "benign", 0, None))   # E5: multi-step OTP, official origin
+    benign.append(("pay_benign", "http://127.0.0.1:8020/", "benign", 0, None))      # E5: payment, trusted processor origin
     return attacks, benign
 
 
@@ -209,7 +211,7 @@ async def guard_run(url, settle_ms, solve, window_s):
 def reuses_flag(label, kind):
     # the user reuses the bank password on login pages (all attacks) and on the one
     # dedicated reuse page; other benign services use a distinct password (good hygiene).
-    return kind == "attack" or label in {"reuse_benign", "sso_benign"}
+    return kind == "attack" or label in {"reuse_benign", "sso_benign", "otp_benign"}
 
 
 async def reuse_run(browser, device, url, solve, reuses):

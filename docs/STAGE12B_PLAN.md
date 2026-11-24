@@ -188,6 +188,32 @@ as the 12b/12c static stage. This supersedes any earlier "rerun 12b with the Sta
 
 ---
 
+## E5 - benign multi-step flows (false-positive test) - PRE-REGISTERED
+
+Goal: show the guard does NOT false-block legitimate multi-step flows that carry sensitive data to
+an OFFICIAL / TRUSTED origin. Fixed before running; do not adjust after seeing results.
+
+Flows (lab, fake data only):
+1. **Benign OTP flow** on the OFFICIAL bank origin (:8000): the user signs in (username + password),
+   an OTP step appears, then success. Every send is SAME-origin to :8000. Driven by a 2-step solver
+   (`drive_otp`): fill credentials -> send -> fill OTP -> send.
+2. **Benign payment flow**: card number + expiry + CVV collected on a TRUSTED payment-processor origin
+   and posted SAME-origin to it. The processor origin (`http://127.0.0.1:8020`) is added to the trusted
+   list as a non-brand partner origin (like the SSO IdP was). Card fields (`autocomplete=cc-number`,
+   `cc-csc`) are treated as sensitive - card numbers are in QuishGuard's stated scope (password / OTP /
+   card). Expiry is not secret and is not flagged.
+
+Pre-registered expectation: **zero false blocks** on both flows, across the live guard, configs (a)/(b)/(c),
+and the reuse baseline (5 reps). Reasoning: OTP flow is same-origin on an official origin (score 0);
+payment flow is same-origin on a trusted origin (score 0); the reuse baseline only fires on the BANK
+password on a NON-official origin (OTP flow is on the official origin; payment uses a card, not the bank
+password). If ANY false block occurs, report it honestly - do not retune to hide it.
+
+Honest-claims: adding the payment origin to the trusted list is a POLICY INPUT (an allow-list), not a
+detection result. A real deployment would populate it from the user's bank/processor, not hardcode it.
+
+---
+
 ## Deviations from pre-registration
 
 1. **otp_late_benign false-positive fix** (2026-11-23, AFTER the first full run).

@@ -48,26 +48,45 @@ sensitive field first (the sensor holds-by-default only after something sensitiv
 the real threat model. So Android and Python coverage are directly comparable.
 
 ### Coverage-limit taxonomy (asked: "not wrapped in this build" vs "cannot be wrapped")
-- **Build limits** - the layer CAN cover these; this build just doesn't yet:
-  - Script layer, image `src` GET (#6): coverable by overriding the `HTMLImageElement.prototype.src` setter.
-  - Script layer, iframe-borrowed fetch (#8): coverable by injecting the sensor into same-origin / `about:blank` child frames.
+- **Build limits now CLOSED (after hardening):**
+  - Script layer, image `src` GET (#6): CLOSED - `HTMLImageElement.prototype.src` setter wrapped.
+  - Script layer, top-level navigation (#9): CLOSED on WebView 113 - the Navigation API `navigate` event
+    cancels page-initiated navigation (confirmed, incl. cross-origin).
+- **Script-layer limitation that did NOT close (empirical, 113):**
+  - iframe-borrowed fetch from an `about:blank` frame (#8): the borrowed realm has its own empty
+    hold-state and its fetch fires on frame load before any cross-realm wrap binds. Native covers it by
+    destination; this is a standing argument for the two-layer design, not a build gap.
 - **Fundamental limits** - the layer CANNOT cover these, by platform design:
   - Native layer, request **bodies**: `shouldInterceptRequest` never exposes the body.
   - Native layer, **WebSocket** (#7): `shouldInterceptRequest` never fires for WS frames.
-- **Partially coverable (to test, not assume)**:
-  - Top-level navigation (#9) is **not reliably interceptable by the script layer**, but it is not
-    impossible: the **Navigation API** (`navigate` event) can cancel some page-initiated navigations
-    in recent WebViews, and on the native side **`shouldOverrideUrlLoading`** sees and can cancel
-    main-frame navigations (query string included). Both are version-dependent (our WebView is 113),
-    so the blocking sub-step tests them rather than declaring navigation uncoverable.
+- **Top-level navigation (#9): coverable by BOTH layers (confirmed on 113).**
+  - Script: the **Navigation API** `navigate` event cancels the page-initiated navigation
+    (`navigation CANCELLED via Navigation API`, incl. cross-origin).
+  - Native: **`shouldOverrideUrlLoading`** cancels the main-frame navigation (query string included).
 
 ### What this shows (RQ1)
 - **The two layers are complementary; together they saw every channel tested.**
   - Script-only: **WebSocket** (native fundamental-blind).
-  - Native-only here: **image GET, top-level navigation, iframe-borrowed fetch** (script blind - image GET and iframe fetch are build gaps; navigation is partially coverable by script via the Navigation API, to be tested).
+  - After hardening, only the **about:blank iframe-borrowed fetch** is native-only; image GET and top-level navigation are now ALSO script-coverable (src-setter wrap; Navigation API on 113).
 - **Native sees destinations, never bodies** - but a secret placed in a URL (image GET, navigation query) rides in the destination, so native captures it anyway. Body-blindness only hides data in a POST body.
 - **One channel's secret VALUE is seen by neither layer as a value: the iframe-borrowed fetch POST body** (script not in the frame; native sees the URL but not the body). Native can still BLOCK it by destination - prevention is possible even when the value is invisible. This separates detection-by-value from prevention-by-destination.
-- **Remaining script-layer build gaps to close:** `img.src` setter and child-frame injection. (Scripted `form.submit()` is already covered by the canonical sensor.)
+- **Script-layer coverage after hardening:** `img.src` setter wrapped (#6 closed), Navigation API cancels navigation (#9, works on 113), scripted `form.submit()` covered. **Residual:** the about:blank iframe-borrowed fetch (#8) stays native-only - a cross-realm/timing limit, not a build gap.
+
+## Android hardening - PRE-REGISTERED (close the two build gaps; test navigation in-page)
+
+Changes to the CANONICAL sensor (so Python and Android stay identical), then rerun BOTH:
+1. **Image `src` (build gap #6):** override `HTMLImageElement.prototype` `src` setter and
+   `setAttribute('src')` so an image GET issued while a secret is held is judged (and dropped on block).
+2. **Child frames (build gap #8):** refactor the channel wraps into `installInto(win)` and install into
+   same-origin / `about:blank` child frames (existing frames + a synchronous hook on iframe insertion),
+   so an iframe-borrowed fetch is wrapped by the top frame's hold state.
+3. **Navigation API (#9):** test whether the `navigate` event (`preventDefault`) can cancel the
+   page-initiated navigation on WebView 113. RECORD the actual result - do not assume it works (113 is old).
+
+Pre-registered expectation to CONFIRM, not assume: image GET and iframe-borrowed fetch become
+SCRIPT-blockable (build gaps closed); the Navigation API result is unknown on 113 and is reported as-is.
+Rerun the Python comparison too - harmless twins must stay at ZERO false blocks (no regression from the
+sensor changes); if any regression appears, report it.
 
 ## RQ5 - time-to-usable (added latency vs WHALE's pre-release window)
 WHALE holds the page for a ~4.2 s (-5.6 s with CRP) pre-release dynamic-analysis window BEFORE the user
@@ -133,10 +152,10 @@ secret. When both can act on a channel, the SCRIPT layer fires first (in-page), 
 | XHR (POST) | Y | Y (403) | stopped |
 | sendBeacon | Y | Y (403) | stopped |
 | form POST | Y (clean - no navigation) | Y (403, but frame navigates to it) | stopped |
-| image `src` GET | N (build gap) | Y (403) | stopped |
-| iframe-borrowed fetch | N (build gap) | Y (403) | stopped |
+| image `src` GET | **Y (src setter wrapped)** | Y (403) | stopped |
+| iframe-borrowed fetch (about:blank) | N (separate realm - see #8 below) | Y (403) | stopped - **native only** |
 | WebSocket | **Y** | **N (fundamental)** | stopped - **script only** |
-| Navigation w/ query (GET) | N (script; Navigation API untested on 113) | **Y - confirmed via `shouldOverrideUrlLoading`** | stopped |
+| Navigation w/ query (GET) | **Y via Navigation API (works on 113)** | Y via `shouldOverrideUrlLoading` | stopped |
 
 ### Conclusion (RQ1, Android)
 - **Every tested channel is blockable by at least one layer** (navigation now confirmed) -
@@ -167,3 +186,25 @@ Navigating (own button, leave page): form POST, top-level navigation carrying da
 
 Each send carries a fake marker `S-<channel>-<origin>` in the body, and `?ch=<channel>-<origin>`
 in the URL, so Logcat lines are attributable even when the native layer sees only the URL.
+
+## Android hardening - results (to fill after rerun)
+Rebuild (Gradle re-copies the canonical sensor.js) and rerun the channel test; tap Run-all SAME + CROSS,
+form-CROSS, nav-CROSS.
+- **Image `src` GET (#6): CLOSED.** The script layer now wraps the `img.src` setter: `qg-sensor image GET
+  ... decision=allow` (same-origin) / `decision=block` (cross-origin). The image build gap is closed -
+  image GETs carrying a held secret are now judged in-page (decideMs ~1-107 ms).
+- **Navigation API (#9): WORKS on WebView 113.** nav-CROSS logged `navigation CANCELLED via Navigation
+  API` - the `navigate` event fired AND was cancelable for the cross-origin navigation, so the SCRIPT
+  layer can cancel page-initiated navigation (not only native `shouldOverrideUrlLoading`). Better than the
+  "may be absent on 113" expectation.
+- **iframe-borrowed fetch (#8): NOT closed on 113.** The `about:blank` fetch fired with NO `qg-sensor`
+  line - only native BLOCK caught it (by destination). Root cause: the borrowed frame is a SEPARATE REALM
+  with its own (empty) hold-state, and its fetch fires synchronously on frame load before a cross-realm
+  wrap can bind; injecting the sensor into the child doesn't help either (the child frame never saw the
+  user type, so its `holding()` is false). This is a genuine script-layer limitation for `about:blank`
+  borrowing, NOT a simple build gap - and the clearest case for keeping the native layer: native blocks it
+  by destination regardless. (The `installInto`/appendChild child-frame hook is kept as best-effort for
+  same-origin child frames; it does not catch the synchronous about:blank case on 113.)
+- **Python comparison: no regression.** All existing rows unchanged; harmless twins still 0 false blocks
+  (config c's `signup_benign` is the pre-existing FP); reuse false-blocks still just `reuse_benign`; E5
+  `otp_benign`/`pay_benign` all allowed.
