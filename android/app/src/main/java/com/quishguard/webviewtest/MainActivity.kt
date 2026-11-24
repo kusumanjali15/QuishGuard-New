@@ -25,6 +25,8 @@ class MainActivity : AppCompatActivity() {
     // cross-origin resources, so this exact rule is not shippable - we are testing whether the native
     // layer CAN stop each channel.)
     private val blockingEnabled = true
+    private val sensorEnabled = true      // RQ5: flip to false to measure load time WITHOUT the sensor
+    private var loadStartMs = 0L
 
     private fun originOf(url: String): String = try {
         val u = java.net.URI(url)
@@ -62,12 +64,15 @@ class MainActivity : AppCompatActivity() {
     private val observeShim = """
         (function () {
           if (!window.__qg_decide) window.__qg_decide = function (info) {
+            var t0 = performance.now();
             var d = (window.QG && window.QG.decide)
               ? window.QG.decide(info.channel, info.method || '', info.url || '',
                                  info.body == null ? '' : String(info.body))
               : 'allow';
+            var dt = (performance.now() - t0).toFixed(2);
             console.log('[qg-sensor] ' + info.channel + ' ' + info.method + ' -> ' + info.url
-                        + ' body=' + (info.body == null ? '' : info.body) + ' decision=' + d);
+                        + ' body=' + (info.body == null ? '' : info.body)
+                        + ' decision=' + d + ' decideMs=' + dt);
             return d;
           };
           if (!window.__qg_observe) window.__qg_observe = function (vals) {
@@ -133,14 +138,27 @@ class MainActivity : AppCompatActivity() {
                 view?.destroy()
                 return true
             }
+
+            // RQ5 time-to-usable: measure each page's load time (navigation -> finished).
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                loadStartMs = System.currentTimeMillis()
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                if (loadStartMs > 0L) Log.i("qg-timing",
+                    "page finished in " + (System.currentTimeMillis() - loadStartMs) +
+                    " ms (sensor=" + sensorEnabled + ") " + url)
+            }
         }
 
         // SCRIPT LAYER: inject the shim + the CANONICAL sensor (same sensor.js as the Python lab),
         // only if the installed WebView supports document-start scripts.
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+        if (sensorEnabled && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             val core = assets.open("sensor.js").bufferedReader().use { it.readText() }
             WebViewCompat.addDocumentStartJavaScript(web, observeShim + "\n" + core, setOf(labOrigin))
             Log.i("qg-setup", "DOCUMENT_START_SCRIPT supported: canonical sensor injected")
+        } else if (!sensorEnabled) {
+            Log.i("qg-setup", "sensor disabled (sensorEnabled=false) - load-time baseline run")
         } else {
             Log.w("qg-setup", "DOCUMENT_START_SCRIPT NOT supported - update Android System WebView")
         }

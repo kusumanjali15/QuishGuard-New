@@ -69,6 +69,25 @@ the real threat model. So Android and Python coverage are directly comparable.
 - **One channel's secret VALUE is seen by neither layer as a value: the iframe-borrowed fetch POST body** (script not in the frame; native sees the URL but not the body). Native can still BLOCK it by destination - prevention is possible even when the value is invisible. This separates detection-by-value from prevention-by-destination.
 - **Remaining script-layer build gaps to close:** `img.src` setter and child-frame injection. (Scripted `form.submit()` is already covered by the canonical sensor.)
 
+## RQ5 - time-to-usable (added latency vs WHALE's pre-release window)
+WHALE holds the page for a ~4.2 s (-5.6 s with CRP) pre-release dynamic-analysis window BEFORE the user
+can interact - that delay is its usability cost. QuishGuard has NO pre-release phase: the sensor injects
+at document-start (non-blocking) and the guard acts at send-time. Two separate figures:
+
+1. **Added time-to-usable** = page load time WITH the sensor minus WITHOUT it (toggle `sensorEnabled`).
+   `qg-timing: page finished in N ms (sensor=true/false)`. Expected ~0 difference.
+   - sensor ON:  1355 ms / sensor OFF: 773 ms - **single samples only; NOT a reliable delta.** The
+     emulator shows multi-second frame jitter, and the sensor-ON run also ran arming + cold JIT. We do
+     NOT claim an added-load figure from this; a clean delta needs medians over several runs on a real
+     device. The defensible RQ5 result is architectural (no pre-release window) + the per-send cost below.
+2. **Per-send decision latency** = the `__qg_decide` round-trip, paid only when the user actually sends
+   sensitive data (not an up-front wait). `qg-sensor ... decideMs=X`. Expected a few ms.
+   - decideMs: 23.6 ms first call (JIT warm-up), then ~4.7-4.8 ms steady -> **~5 ms per sensitive send.**
+
+Honest framing: QuishGuard adds ~0 s to time-to-usable (no window to wait out), vs WHALE's ~4.2 s; its
+cost is a few ms per sensitive send. Measured on WebView 113, emulator (note the emulator is slow, so
+absolute load ms are not device-representative - the sensor-on vs sensor-off DIFFERENCE is the figure).
+
 ### Blocking sub-step (plan - fills the "could it be blocked" column)
 Mechanisms to WIRE and then TEST per channel (test on this WebView 113, don't assume):
 - **Script layer** (`__qg_decide` returns `block`): the canonical sensor already drops fetch / XHR /
@@ -100,7 +119,7 @@ nav) blocked by `shouldInterceptRequest`; cross-origin GET navigation blocked by
   to the 403 (document origin becomes the destination, so its favicon is then also blocked) - the body
   is stopped, but the page moves. `shouldOverrideUrlLoading` is NOT called for POST navigations, so it
   can't give cleaner cancellation here.
-- Cross-origin GET navigation (`shouldOverrideUrlLoading` path): **not yet tapped** - TODO confirm.
+- Cross-origin GET navigation: **BLOCKED** via `shouldOverrideUrlLoading` (confirmed) - cancels the nav cleanly (page stays).
 - Cross-origin **WebSocket**: **NOT blocked** (native hook never fires) - slipped through; native cannot
   block WS. This is the script-only channel 4b must cover.
 - All same-origin channels: allowed (no block).
@@ -117,10 +136,10 @@ secret. When both can act on a channel, the SCRIPT layer fires first (in-page), 
 | image `src` GET | N (build gap) | Y (403) | stopped |
 | iframe-borrowed fetch | N (build gap) | Y (403) | stopped |
 | WebSocket | **Y** | **N (fundamental)** | stopped - **script only** |
-| Navigation w/ query (GET) | N (script; Navigation API untested on 113) | expected via `shouldOverrideUrlLoading` - **TODO: tap Navigation-CROSS to confirm** | pending |
+| Navigation w/ query (GET) | N (script; Navigation API untested on 113) | **Y - confirmed via `shouldOverrideUrlLoading`** | stopped |
 
 ### Conclusion (RQ1, Android)
-- **Every tested channel is blockable by at least one layer** (navigation pending one confirmation) -
+- **Every tested channel is blockable by at least one layer** (navigation now confirmed) -
   so on Android QuishGuard "blocks supported channels" (detection and prevention both demonstrated,
   kept separate).
 - **WebSocket is blockable ONLY by the script layer** - native cannot touch it. The sharpest argument

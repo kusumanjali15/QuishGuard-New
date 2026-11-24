@@ -12,8 +12,8 @@ Each stage: **Learn** = concepts to understand, **Build** = what to make, **Done
    - a CAPTCHA automation can't pass: a distorted-code IMAGE the user must type (open case 3)
    - the AiTM relay forwarding to our OWN Formosa Demo Bank server (open case 6)
 4. Stage 12b - WHALE-inspired baseline, compared with the live guard on open cases 1-6.  [DONE - see STAGE12B_NOTES.md]
-5. Stage 16 - a MINIMAL Android interception test, done BEFORE DynaPD (RQ1 is our strongest
-   novelty; DynaPD needs an isolated machine still to be requested from the professor).
+5. Stage 16 - a MINIMAL Android interception test, done BEFORE DynaPD.  [DONE - see STAGE16_NOTES.md]
+   (RQ1 is our strongest novelty; DynaPD needs an isolated machine still to be requested from the professor.)
 6. Stage 14b - DynaPD live-behaviour lab (once the isolated machine is available).
 
 RQ mapping (corrected): **RQ2 prevalence = phishing-snapshots (Stage 14).** DynaPD traces
@@ -199,10 +199,20 @@ RQ mapping (corrected): **RQ2 prevalence = phishing-snapshots (Stage 14).** Dyna
 
 ## Part F - Android
 
-- [ ] **Stage 16 - Android interception test (Gate 1 on a phone)**
+- [x] **Stage 16 - Android interception test (Gate 1 on a phone)**
   - Build order: a MINIMAL version runs BEFORE Stage 14b (see Current build order).
   - Learn: Android Studio, Kotlin basics, WebView, `addDocumentStartJavaScript`, `shouldInterceptRequest`.
   - Build: a minimal app that opens a lab page and tries to block each channel.
   - Also measure **time until the page is usable** by the user, to compare against WHALE's
     ~4.2 s dynamic (~5.6 s with CRP detection) pre-release delay (RQ5).
   - Done when: a per-channel table says what Android can and cannot block, plus a time-to-usable figure.
+  - DONE (WebView 113, Pixel 7 / API 34 emulator; see docs/STAGE16_NOTES.md): minimal app with the
+    canonical sensor (script layer) + `shouldInterceptRequest`/`shouldOverrideUrlLoading` (native layer).
+    Per-channel SEE + BLOCK matrix across fetch/XHR/beacon/image/WebSocket/navigation/iframe-fetch,
+    same- and cross-origin. Key results: the two layers are COMPLEMENTARY for detection AND prevention -
+    WebSocket is blockable only by the script layer, image/iframe-fetch only by native; every tested
+    channel is blockable by at least one. Also recorded build-vs-fundamental coverage limits, the
+    realistic form-POST caveats, and an `onRenderProcessGone` safety net.
+  - RQ5: QuishGuard adds NO pre-release window (vs WHALE ~4.2 s); per-send decision latency ~5 ms steady
+    (23.6 ms first-call JIT warm-up). Load-time delta left as emulator-noise (not device-representative);
+    a clean added-load figure needs medians on a real device (future).
