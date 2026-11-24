@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import android.util.Log
 import android.webkit.ConsoleMessage
+import android.webkit.JavascriptInterface
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -34,6 +35,26 @@ class MainActivity : AppCompatActivity() {
         "text/plain", "utf-8", 403, "Blocked", emptyMap(),
         java.io.ByteArrayInputStream("blocked by QuishGuard".toByteArray()))
 
+    private fun authorityOf(url: String): String = try {
+        val u = java.net.URI(url)
+        (u.host ?: "") + (if (u.port == -1) "" else ":" + u.port)
+    } catch (e: Exception) { "" }
+
+    // Bridge exposed to the page as window.QG. SECURITY: addJavascriptInterface exposes native code
+    // to JS - only safe for TRUSTED / lab pages (which ours are). The sensor's __qg_decide calls this
+    // and gets a synchronous allow/block back. Rule mirrors 4a (cross-authority = block when armed),
+    // but here the SCRIPT layer enforces it - covering WebSocket, which native cannot.
+    inner class QgBridge {
+        @JavascriptInterface
+        fun decide(channel: String, method: String, url: String, body: String?): String {
+            val labAuthority = authorityOf(labOrigin)                 // 10.0.2.2:8003
+            val dest = authorityOf(url)
+            val block = blockingEnabled && dest.isNotEmpty() && dest != labAuthority
+            Log.i("qg-decide", channel + " " + method + " -> " + url + " => " + (if (block) "block" else "allow"))
+            return if (block) "block" else "allow"
+        }
+    }
+
     // Observe-only shim. The CANONICAL sensor (assets/sensor.js, copied from
     // src/quishguard/sensor.js) calls window.__qg_decide / window.__qg_observe. Until the native
     // decision bridge is wired (blocking sub-step), these stubs LOG each judged send and allow it,
@@ -41,9 +62,13 @@ class MainActivity : AppCompatActivity() {
     private val observeShim = """
         (function () {
           if (!window.__qg_decide) window.__qg_decide = function (info) {
+            var d = (window.QG && window.QG.decide)
+              ? window.QG.decide(info.channel, info.method || '', info.url || '',
+                                 info.body == null ? '' : String(info.body))
+              : 'allow';
             console.log('[qg-sensor] ' + info.channel + ' ' + info.method + ' -> ' + info.url
-                        + ' body=' + (info.body == null ? '' : info.body));
-            return 'allow';
+                        + ' body=' + (info.body == null ? '' : info.body) + ' decision=' + d);
+            return d;
           };
           if (!window.__qg_observe) window.__qg_observe = function (vals) {
             console.log('[qg-sensor] observed ' + (vals ? vals.length : 0) + ' sensitive value(s)');
@@ -119,6 +144,8 @@ class MainActivity : AppCompatActivity() {
         } else {
             Log.w("qg-setup", "DOCUMENT_START_SCRIPT NOT supported - update Android System WebView")
         }
+
+        web.addJavascriptInterface(QgBridge(), "QG")   // lab-only native bridge for __qg_decide
 
         web.loadUrl(labUrl)
     }

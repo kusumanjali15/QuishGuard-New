@@ -105,6 +105,33 @@ nav) blocked by `shouldInterceptRequest`; cross-origin GET navigation blocked by
   block WS. This is the script-only channel 4b must cover.
 - All same-origin channels: allowed (no block).
 
+**4b results + blockability summary (WebView 113).** Both layers on; rule = block cross-origin held
+secret. When both can act on a channel, the SCRIPT layer fires first (in-page), so native never sees it.
+
+| Channel | Blockable by SCRIPT | Blockable by NATIVE | Net result |
+|---|---|---|---|
+| fetch (POST) | Y (dropped in-page) | Y (403) | stopped |
+| XHR (POST) | Y | Y (403) | stopped |
+| sendBeacon | Y | Y (403) | stopped |
+| form POST | Y (clean - no navigation) | Y (403, but frame navigates to it) | stopped |
+| image `src` GET | N (build gap) | Y (403) | stopped |
+| iframe-borrowed fetch | N (build gap) | Y (403) | stopped |
+| WebSocket | **Y** | **N (fundamental)** | stopped - **script only** |
+| Navigation w/ query (GET) | N (script; Navigation API untested on 113) | expected via `shouldOverrideUrlLoading` - **TODO: tap Navigation-CROSS to confirm** | pending |
+
+### Conclusion (RQ1, Android)
+- **Every tested channel is blockable by at least one layer** (navigation pending one confirmation) -
+  so on Android QuishGuard "blocks supported channels" (detection and prevention both demonstrated,
+  kept separate).
+- **WebSocket is blockable ONLY by the script layer** - native cannot touch it. The sharpest argument
+  for keeping the in-page sensor on Android, not just native interception.
+- **image GET and iframe-borrowed fetch are blockable ONLY by native** (script build-gaps) - the mirror
+  case, and the argument for keeping native interception too.
+- **form POST**: the script layer gives cleaner prevention (send dropped, page stays); native stops the
+  body but the frame still navigates to the 403 (no `shouldOverrideUrlLoading` for POST).
+- Net: the two layers are **complementary for prevention**, not just detection - neither alone blocks
+  everything; together they cover all tested channels.
+
 ### Navigation crash (handled)
 Both navigating channels are observed by the native layer, then the app process died shortly after the
 WebView loaded the destination (non-navigating channels never crash) - a WebView render-process crash on
