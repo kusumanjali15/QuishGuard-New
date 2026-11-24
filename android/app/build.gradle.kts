@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.core.ktx)
+    implementation("androidx.webkit:webkit:1.11.0")   // WebViewCompat / WebViewFeature: document-start script + feature checks
     implementation(libs.material)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)
