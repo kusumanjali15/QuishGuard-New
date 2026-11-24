@@ -174,20 +174,9 @@
     }
   } catch (err) {}
 
-  // Child frames (Android build-gap #5): same-origin / about:blank iframes, existing + future.
-  const tryFrame = (iframe) => { try { const w = iframe && iframe.contentWindow; if (w && w.document) installInto(w); } catch (e) {} };
-  for (let i = 0; i < window.frames.length; i++) { try { installInto(window.frames[i]); } catch (e) {} }
-  const wrapInsert = (proto, name) => {
-    const orig = proto && proto[name];
-    if (!orig) return;
-    proto[name] = function (node, ...rest) {
-      const r = orig.call(this, node, ...rest);
-      try {
-        if (node && node.tagName === "IFRAME") { tryFrame(node); node.addEventListener("load", () => tryFrame(node), true); }
-      } catch (e) {}
-      return r;
-    };
-  };
-  wrapInsert(Node.prototype, "appendChild");
-  wrapInsert(Node.prototype, "insertBefore");
+  // NOTE: an earlier build also hooked Node.prototype.appendChild/insertBefore to install into
+  // child frames (Android build-gap #5). It caught NOTHING in the tests - the about:blank
+  // iframe-borrowed fetch fired before any cross-realm wrap could bind and was blocked by the
+  // native layer instead - so it was removed to keep the sensor's global surface minimal. The
+  // about:blank iframe channel is accepted as NATIVE-ONLY (see docs/STAGE16_NOTES.md #8).
 })();

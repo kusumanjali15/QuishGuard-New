@@ -203,8 +203,10 @@ form-CROSS, nav-CROSS.
   wrap can bind; injecting the sensor into the child doesn't help either (the child frame never saw the
   user type, so its `holding()` is false). This is a genuine script-layer limitation for `about:blank`
   borrowing, NOT a simple build gap - and the clearest case for keeping the native layer: native blocks it
-  by destination regardless. (The `installInto`/appendChild child-frame hook is kept as best-effort for
-  same-origin child frames; it does not catch the synchronous about:blank case on 113.)
+  by destination regardless. DECISION: accept native-only coverage for this channel; no deeper fix.
+  The `appendChild`/`insertBefore` child-frame hook (which caught NOTHING in the tests) was REMOVED
+  to keep the sensor's global surface minimal - `installInto` now wraps the top frame only, and the
+  native layer is the sole cover for the about:blank iframe-borrowed fetch.
 - **Python comparison: no regression.** All existing rows unchanged; harmless twins still 0 false blocks
   (config c's `signup_benign` is the pre-existing FP); reuse false-blocks still just `reuse_benign`; E5
   `otp_benign`/`pay_benign` all allowed.
