@@ -1,15 +1,24 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
+# Built application files & build dirs
 /build
+/*/build
 /captures
+
+# Gradle
+.gradle
+.kotlin
+/gradle/gradle-daemon-jvm.properties
+
+# Local config (SDK path, secrets) - machine-specific, never commit
+/local.properties
+local.properties
+
+# IDE - do not commit the whole IntelliJ/Android Studio project dir
+/.idea
+*.iml
+
+# Native build
 .externalNativeBuild
 .cxx
-local.properties
+
+# OS
+.DS_Store
