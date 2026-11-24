@@ -85,6 +85,26 @@ Mechanisms to WIRE and then TEST per channel (test on this WebView 113, don't as
 - **WebSocket**: script-only (native cannot) - block = `__qg_decide` -> close the socket.
 Record, per channel: blocked by script? blocked by native? and the net result (send stopped / not).
 
+**4a (native) - pre-registered rule (lab mechanism test, not a shippable policy):** once armed, a held
+secret may go SAME-origin but is blocked CROSS-origin. Enforced by `shouldInterceptRequest` (returns a
+403 for a cross-origin destination -> the real request is never sent) and `shouldOverrideUrlLoading`
+(returns true to cancel a cross-origin main-frame navigation). Expected: all cross-origin HTTP channels
+(fetch/XHR/beacon/image/iframe-fetch) blocked by `shouldInterceptRequest`; cross-origin form POST (a POST
+nav) blocked by `shouldInterceptRequest`; cross-origin GET navigation blocked by `shouldOverrideUrlLoading`;
+**WebSocket NOT blockable by native** (hook never fires) - script-only. Same-origin: allowed. To confirm.
+
+**4a results (confirmed, WebView 113):**
+- Cross-origin fetch / XHR / sendBeacon / image GET / iframe-borrowed fetch: **BLOCKED** by
+  `shouldInterceptRequest` (403; the real request is never sent - secret does not leave).
+- Cross-origin **form POST**: **BLOCKED** by `shouldInterceptRequest`. Caveat: the frame still navigates
+  to the 403 (document origin becomes the destination, so its favicon is then also blocked) - the body
+  is stopped, but the page moves. `shouldOverrideUrlLoading` is NOT called for POST navigations, so it
+  can't give cleaner cancellation here.
+- Cross-origin GET navigation (`shouldOverrideUrlLoading` path): **not yet tapped** - TODO confirm.
+- Cross-origin **WebSocket**: **NOT blocked** (native hook never fires) - slipped through; native cannot
+  block WS. This is the script-only channel 4b must cover.
+- All same-origin channels: allowed (no block).
+
 ### Navigation crash (handled)
 Both navigating channels are observed by the native layer, then the app process died shortly after the
 WebView loaded the destination (non-navigating channels never crash) - a WebView render-process crash on
