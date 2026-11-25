@@ -21,10 +21,13 @@ Running real kits is only safe fully contained. All of these must hold:
    in the disconnected state immediately before each kit-run session; reconnect only when no kit is
    running (to pull fixes), then disconnect and re-verify before resuming.
 3. **Mail disabled**: PHP `sendmail_path` set to a no-op/logging stub; the kit's `mail()` cannot send.
-4. **Egress sinkhole (so we can RECORD without forwarding)**: a local DNS resolver answers EVERY A
-   query with the sink IP; a catch-all HTTP/HTTPS sink logs `method + host + path + body` and returns
-   200. A kit's exfil (HTTP POST, Telegram/bot API, email-over-HTTP) is CAPTURED locally, never
-   forwarded. This is how the behaviour is recorded.
+4. **Egress sinkhole (so we can RECORD without forwarding)**: DynaPD kits were de-weaponized to send
+   credentials by **EMAIL to a configurable address** (Telegram code replaced). So the PRIMARY capture
+   is a local **SMTP sink** on :25 that logs the full message (to/subject/body) and never relays;
+   PHP's `sendmail_path` is pointed at it and the kit's configurable attacker email is set to a local
+   address. SECONDARY: a local DNS resolver (all A -> sink IP) + a catch-all HTTP/HTTPS sink logging
+   `method+host+path+body` and returning 200, for any kit that still exfils over HTTP. Nothing is
+   forwarded; every send is captured locally. This is how the behaviour is recorded.
 5. **Fake data only**: demo_user_01 / Lab-Pass-4821 / OTP 123456 / LINK-7788 / test card 4111...4111.
    No real account, email, or secret ever typed.
 6. **Verify-before-run GATE**: `lab14b/egress_test.py` runs and is logged BEFORE each kit-run session -
@@ -40,7 +43,10 @@ identifiers before any public release. Never publish raw kit exfil targets.
 ## Lab architecture
 - `lab14b/` (new): Docker lab + recorder (built on the current machine, run on the isolated one).
   - `sinkhole/`: DNS resolver (all -> sink IP) + catch-all HTTP(S) sink (logs body, returns 200).
-  - kit server: PHP (Docker) serving one kit's directory at a time on the internal network.
+  - kit server: PHP's built-in server `php -S 127.0.0.1:<port> -t <kit-dir>` (php-cli) serving one kit
+    at a time; no XAMPP needed. CAVEAT: `php -S` does not process `.htaccess`/mod_rewrite, so kits that
+    depend on Apache rewrites may not serve correctly - flagged per kit; revisit with Apache if many fail.
+    `sendmail_path` set to the SMTP sink (or a logging stub) so `mail()` is captured, never sent.
   - `record_kit.py`: for each kit - start the kit container, drive it with OUR victim
     (Playwright Pixel 7 + sensor + guard, fake creds), capture the behaviour trace, tear down.
 - Reuse the existing `quishguard` sensor/guard unchanged (same code as Android/Python lab).

@@ -12,3 +12,6 @@ data/
 # labeling artifacts (regenerable / large)
 lab/label_shots/
 lab/_label_pool.pkl
+
+# Stage 14b capture logs may contain real attacker addresses - never commit (scrub for release)
+lab14b/traces/
