@@ -12,9 +12,14 @@ snapshots (Stage 14).
 ## Safety / isolation - NON-NEGOTIABLE (verify BEFORE any kit runs)
 Running real kits is only safe fully contained. All of these must hold:
 1. **Host**: the isolated machine only. No production network, no shared drives with live data.
-2. **No egress**: kits run in Docker on an INTERNAL network (`docker network create --internal`), so
-   there is no route off-host. Belt-and-suspenders: a host firewall rule DROPs all outbound from the
-   lab subnet. Ports 25/465/587 (SMTP) blocked.
+2. **No egress (WSL + disconnect model)**: the lab runs in **WSL2 (Ubuntu) on a dedicated Windows box**.
+   The PRIMARY egress guarantee is that the **physical machine is disconnected from the network**
+   (Ethernet unplugged / adapter disabled) whenever REAL kits run - a boundary that cannot be subtly
+   misconfigured. SECONDARY containment: kits run in Docker on an INTERNAL network inside WSL
+   (`docker network create --internal`). Workflow: build/debug the harness while ONLINE (egress test +
+   our own safe pages only, never real kits); DISCONNECT to run real DynaPD kits; re-run the egress gate
+   in the disconnected state immediately before each kit-run session; reconnect only when no kit is
+   running (to pull fixes), then disconnect and re-verify before resuming.
 3. **Mail disabled**: PHP `sendmail_path` set to a no-op/logging stub; the kit's `mail()` cannot send.
 4. **Egress sinkhole (so we can RECORD without forwarding)**: a local DNS resolver answers EVERY A
    query with the sink IP; a catch-all HTTP/HTTPS sink logs `method + host + path + body` and returns
@@ -22,9 +27,10 @@ Running real kits is only safe fully contained. All of these must hold:
    forwarded. This is how the behaviour is recorded.
 5. **Fake data only**: demo_user_01 / Lab-Pass-4821 / OTP 123456 / LINK-7788 / test card 4111...4111.
    No real account, email, or secret ever typed.
-6. **Verify-before-run GATE**: an egress test runs and is logged BEFORE the first kit - from inside the
-   kit container, attempt to reach a known external host; it MUST fail. If anything is reachable, STOP
-   and fix isolation. The runner refuses to proceed unless the egress test failed as required.
+6. **Verify-before-run GATE**: `lab14b/egress_test.py` runs and is logged BEFORE each kit-run session -
+   from the WSL host (and, once built, from inside the kit container) it attempts several external
+   reaches (DNS, TCP:443, HTTP); ALL must fail. If anything is reachable, STOP and fix isolation. The
+   recorder refuses to proceed unless the egress test reported ISOLATED.
 
 ## Data governance
 Kits embed REAL attacker exfil endpoints (emails, bot tokens, URLs). Traces/sink logs will contain
