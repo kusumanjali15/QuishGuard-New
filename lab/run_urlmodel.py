@@ -1,35 +1,27 @@
-"""Stage 13: run the pretrained URL model over lab URLs and realistic examples.
-
-First run downloads the model (~15 MB) after torch/transformers are installed.
-Usage:  python lab\\run_urlmodel.py
+"""Stage 13 ADDENDUM: LightGBM static-stage URL model, honest evaluation.
+Run:  PYTHONPATH=src python lab/run_urlmodel.py
+Needs lab15_data/{train,test}.parquet (pirocheto/phishing-url) and the qg15 venv
+(pyarrow pandas scikit-learn lightgbm shap tldextract).
 """
+import warnings; warnings.filterwarnings("ignore")
+import pandas as pd
+from quishguard import urlmodel as M
 
-from quishguard.urlmodel import url_phishing_score
+pd.set_option("display.width", 160, "display.max_columns", 20)
 
-LAB_URLS = [
-    ("lab bank (legit)", "http://127.0.0.1:8000/"),
-    ("lab phishing", "http://127.0.0.1:8001/"),
-    ("lab collector", "http://127.0.0.1:8002/collect"),
-]
+def show(agg, title):
+    print(f"\n### {title}")
+    out = agg.copy(); out.columns = [f"{a}.{b}" for a, b in out.columns]
+    print(out.round(3).to_string())
+    return out
 
-# Clearly-benign vs obfuscated-looking strings, to show the model DOES work on
-# real-world-shaped URLs (no real brands used).
-REALISTIC_URLS = [
-    ("well-known site", "huggingface.co/"),
-    ("well-known site", "github.com/"),
-    ("obfuscated host", "hu991ngface.com.ru/"),
-    ("suspicious chain", "secure-login-verify.account-update.xyz/signin"),
-]
-
-
-def show(group: str, urls: list[tuple[str, str]]) -> None:
-    print(f"\n{group}")
-    for label, url in urls:
-        p = url_phishing_score(url)
-        verdict = "PHISH" if p >= 0.5 else "legit"
-        print(f"  {verdict:5} p(phish)={p:0.3f}  [{label}] {url}")
-
-
-if __name__ == "__main__":
-    show("LAB URLs (all on 127.0.0.1 - the model has no signal here):", LAB_URLS)
-    show("REALISTIC URLs (what the model was actually trained for):", REALISTIC_URLS)
+print("=" * 68, "\nSTAGE 13 ADDENDUM - static URL stage - DOMAIN-DISJOINT split - 10 runs\n", "=" * 68)
+runs = []
+df, agg   = M.evaluate("url_only (56)", n_runs=10, grouped=True);  show(agg,  "url_only (56)  [on-device]  domain-disjoint"); df["setting"]="url_only/domain"
+df2, agg2 = M.evaluate("all (87)",      n_runs=10, grouped=True);  show(agg2, "all (87)  [+whois/pagerank/content]  domain-disjoint"); df2["setting"]="all/domain"
+dfr, aggr = M.evaluate("url_only (56)", n_runs=10, grouped=False); show(aggr, "url_only (56)  RANDOM split  [leakage check]"); dfr["setting"]="url_only/random"
+pd.concat([df, df2, dfr], ignore_index=True).to_csv("lab15_data/stage13_addendum_runs.csv", index=False)
+print("\n### SHAP top-15  (LightGBM, url_only, domain split)")
+for name, val in M.shap_top("url_only (56)"):
+    print(f"  {val:6.3f}  {name}")
+print("\nper-run results saved to lab15_data/stage13_addendum_runs.csv")
