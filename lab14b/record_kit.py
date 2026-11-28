@@ -36,6 +36,28 @@ SENDMAIL = HERE / "fake_sendmail.py"
 # the fake sensitive values we type - a send/mail "carries a fake value" if one appears in it
 FAKE_VALUES = sorted({v for v in VICTIM_VALUES.values() if len(v) >= 4}, key=len, reverse=True)
 
+FAKE_FILL = {"user": "demo_user_01", "pass": "Lab-Pass-4821", "otp": "123456",
+             "code": "LINK-7788", "card": "4111111111111111"}
+FILL_JS = r"""(d) => {
+  const vis = el => el.offsetParent !== null || el.getClientRects().length > 0;
+  let filled = 0;
+  for (const el of document.querySelectorAll('input, textarea')) {
+    if (!vis(el)) continue;
+    const t = (el.type || '').toLowerCase();
+    const hay = ((el.name||'')+' '+(el.id||'')+' '+(el.placeholder||'')+' '+(el.getAttribute('autocomplete')||'')).toLowerCase();
+    if (t === 'password') el.value = d.pass;
+    else if (el.getAttribute('autocomplete') === 'one-time-code' || /otp|token/.test(hay)) el.value = d.otp;
+    else if (/card|cc-|cardnum/.test(hay)) el.value = d.card;
+    else if (/code|pin/.test(hay)) el.value = d.code;
+    else if (['text','email','tel',''].includes(t)) el.value = d.user;
+    else continue;
+    el.dispatchEvent(new Event('input', {bubbles:true}));
+    el.dispatchEvent(new Event('change', {bubbles:true}));
+    filled++;
+  }
+  return filled;
+}"""
+
 
 def find_entry(kit: Path) -> str:
     """URL path (relative to the kit root) of the login page: a file with a password field,
@@ -114,19 +136,32 @@ async def drive(url: str, settle_ms: int, headful: bool) -> list[dict]:
             await browser.close()
             return sends
 
-        # fill any visible sensitive/known fields, then submit (best-effort, kits vary)
-        for selector, value in VICTIM_VALUES.items():
+        # multi-step: fill + submit, then follow the kit's next-step pages (next1.php -> ... -> finish)
+        for _step in range(6):
             try:
-                el = await page.query_selector(selector)
-                if el and await el.is_visible():
-                    await page.fill(selector, value, timeout=1_500)
+                await page.evaluate(FILL_JS, FAKE_FILL)
             except Exception:
                 pass
-        try:
-            await page.click("button, input[type=submit]", timeout=3_000)
-        except Exception:
-            pass
-        await page.wait_for_timeout(settle_ms)
+            submitted = False
+            for sel in ("input[type=image]", "input[type=submit]", "button[type=submit]", "button"):
+                try:
+                    await page.click(sel, timeout=1_500, no_wait_after=True)
+                    submitted = True
+                    break
+                except Exception:
+                    continue
+            if not submitted:
+                try:
+                    await page.evaluate("() => { const f = document.querySelector('form'); if (f) f.submit(); }")
+                except Exception:
+                    pass
+            await page.wait_for_timeout(settle_ms)
+            try:
+                remaining = await page.evaluate("() => document.querySelectorAll('form input, form textarea').length")
+            except Exception:
+                remaining = 0
+            if remaining == 0:
+                break
         await browser.close()
     return sends
 
@@ -152,7 +187,7 @@ def main() -> int:
     env = dict(os.environ, QG_MAIL_LOG=str(mail_log), QG_EXFIL_EMAIL="attacker@phishing.localhost")
     php = subprocess.Popen(
         ["php", "-S", f"127.0.0.1:{port}", "-t", str(kit),
-         "-d", f"sendmail_path={SENDMAIL}"],
+         "-d", f"sendmail_path={sys.executable} {SENDMAIL}"],
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
