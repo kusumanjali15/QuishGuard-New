@@ -111,6 +111,7 @@ def carries_fake(text: str) -> bool:
 async def drive(url: str, settle_ms: int, headful: bool) -> list[dict]:
     """Load the kit, submit fake creds, and return every browser request as a dict."""
     sends: list[dict] = []
+    forced = [False]
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=not headful)
         ctx = await browser.new_context(**p.devices[PHONE])
@@ -134,28 +135,32 @@ async def drive(url: str, settle_ms: int, headful: bool) -> list[dict]:
         except Exception as e:
             sends.append({"error": f"goto failed: {e}"})
             await browser.close()
-            return sends
+            return sends, False
 
-        # multi-step: fill + submit, then follow the kit's next-step pages (next1.php -> ... -> finish)
+        # multi-step: run the kit's OWN submit control first (real click, so its channel runs);
+        # if that sends nothing, force-submit every form directly and FLAG it. Then follow steps.
         for _step in range(6):
             try:
                 await page.evaluate(FILL_JS, FAKE_FILL)
             except Exception:
                 pass
-            submitted = False
-            for sel in ("input[type=image]", "input[type=submit]", "button[type=submit]", "button"):
+            before = sum(1 for s in sends if s.get("method") == "POST")
+            for sel in ("input[type=image]", "input[type=submit]", "button[type=submit]",
+                        "button", "input[type=button]"):
                 try:
-                    await page.click(sel, timeout=1_500, no_wait_after=True)
-                    submitted = True
+                    await page.click(sel, timeout=1_200, no_wait_after=True)
                     break
                 except Exception:
                     continue
-            if not submitted:
+            await page.wait_for_timeout(settle_ms)
+            if sum(1 for s in sends if s.get("method") == "POST") == before:
                 try:
-                    await page.evaluate("() => { const f = document.querySelector('form'); if (f) f.submit(); }")
+                    n = await page.evaluate("() => { let n=0; for (const f of document.querySelectorAll('form')){ try{ f.submit(); n++; }catch(e){} } return n; }")
+                    if n:
+                        forced[0] = True
+                        await page.wait_for_timeout(settle_ms)
                 except Exception:
                     pass
-            await page.wait_for_timeout(settle_ms)
             try:
                 remaining = await page.evaluate("() => document.querySelectorAll('form input, form textarea').length")
             except Exception:
@@ -163,7 +168,7 @@ async def drive(url: str, settle_ms: int, headful: bool) -> list[dict]:
             if remaining == 0:
                 break
         await browser.close()
-    return sends
+    return sends, forced[0]
 
 
 def main() -> int:
@@ -196,7 +201,7 @@ def main() -> int:
         entry = find_entry(kit)
         entry_url = f"http://127.0.0.1:{port}/{entry}"
         print(f"[{kit_id}] entry: /{entry or '(root)'}")
-        sends = asyncio.run(drive(entry_url, args.settle_ms, args.headful))
+        sends, forced = asyncio.run(drive(entry_url, args.settle_ms, args.headful))
     finally:
         php.terminate()
         try:
@@ -213,6 +218,7 @@ def main() -> int:
         "mail_exfil_captured": bool(mail_raw.strip()),
         "mail_carried_fake_value": carries_fake(mail_raw),
         "front_end_carried_fake_value": any(s.get("carries_fake_value") for s in sends),
+        "forced_submit": forced,
         "notes": "php -S has no .htaccess; verify the login page actually rendered.",
     }
     out.write_text(json.dumps(trace, indent=2))

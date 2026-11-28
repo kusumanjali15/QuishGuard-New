@@ -68,3 +68,29 @@ never random.
 ## Done when
 Per-kit behaviour traces are recorded by our own sensor for a documented set of kits, with the
 egress-test gate logged as PASSED (i.e. egress correctly blocked), in docs/STAGE14B_NOTES.md.
+
+## Scaled run pre-registration (2026-11-28)
+
+Decided before running, after a 51-kit pilot showed ~31% of real kits are drivable in a
+fully-isolated (network-disconnected) harness.
+
+- Sample: 301 kits from DynaPD processed_kits_130323 (7,980 total), first 301 by md5 order.
+  No selection by behaviour or brand.
+- Expectation: ~31% (~90) present a login drivable offline and reach a credential send. The
+  rest are offline-dead by construction (front-end served from live infra, or login built by
+  external JS that cannot load while disconnected). This fraction is itself a reported result.
+- Reported honestly:
+  - drivable fraction = driven / sampled, with the breakdown (external-front-end /
+    no-form-offline / form-present-no-POST) from the trace classifier.
+  - Of driven kits: count via same-origin POST (sensor-coverable), via client-side
+    cross-origin send, and triggering server-side mail exfil; plus how many needed a forced
+    form-submit vs the kit's own control.
+  - Selection bias stated up front: the observable subset is self-contained, same-origin kits;
+    externally-dependent kits are not observable offline and may behave differently. This
+    strengthens RQ3 coverage with a real N but adds little behavioural diversity, so Stage 15
+    is a supporting result, not a headline.
+- Family label: no labels.csv shipped. Family = impersonated brand, inferred post-hoc from each
+  kit's own contents (entry path, external hosts, title); stated as a proxy for codebase
+  lineage. Used only for the RQ4 family-disjoint split.
+- Safety unchanged: machine physically disconnected; egress_test.py must print ISOLATED before
+  the batch; mail sinkholed to fake_sendmail; traces stay in the gitignored PRIVATE dir.
